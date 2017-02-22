@@ -30,7 +30,18 @@ int main(int argc, char** argv )
 	
 	printf("Dimensions: %d by %d, resized to %3.0f by %3.0f\n",r,c,r*scaley,c*scalex);
 	
-	Mat frame,f1,f2,f3,flow,flow2;
+	
+
+	Mat frame;
+	Mat subframe[90];
+	Mat f2,f3;
+	Mat flow_raw;
+
+	Mat flow[90];
+	
+	float directions[10][65][49][36] = {0}; //This will be a massive array. Just yuuge. The biggest. Coordinates as follows: timeframe, column, row, direction bin. Value: intensity in the 20*20 sector in that direction.
+	//printf("%d\n",sizeof(directions));
+	//exit(0);
 	Mat splitarr[2];
 	namedWindow("foo", WINDOW_AUTOSIZE );
 	
@@ -42,31 +53,35 @@ int main(int argc, char** argv )
 	video.read(frame);
 	
 	if(frame.empty()){exit(1);}
-	resize(frame,f1,Size(),scalex,scaley,INTER_AREA);
-	cvtColor(f1,f2,COLOR_BGR2GRAY);
+	resize(frame,subframe[0],Size(),scalex,scaley,INTER_AREA);
+	cvtColor(subframe[0],f2,COLOR_BGR2GRAY);
 
-
-	for( i = 0; true; i++){//fix video read, right now it's 1/4 realtime.
-		
+	
+	
+	//exit(0);
+	
+	
+	for( i = 1; i < 90; i++){//fix video read, right now it's 1/4 realtime.
+		int timeslot = i / 90;
 		
 		video.read(frame);
 		if(frame.empty()){break;}
-		resize(frame,f1,Size(),scalex,scaley,INTER_AREA);
+		resize(frame,subframe[i],Size(),scalex,scaley,INTER_AREA);
 		
 		if(turn){
-			cvtColor(f1,f2,COLOR_BGR2GRAY);
-			calcOpticalFlowFarneback(f3,f2, flow, 0.5, 2, 5, 2, 3, 1.2, 0);
+			cvtColor(subframe[i],f2,COLOR_BGR2GRAY);
+			calcOpticalFlowFarneback(f3,f2, flow_raw, 0.5, 2, 5, 2, 3, 1.2, 0);
 			//printf("tick\n");
 		}else{
-			cvtColor(f1,f3,COLOR_BGR2GRAY);
-			calcOpticalFlowFarneback(f2,f3, flow, 0.5, 2, 5, 2, 3, 1.2, 0);
+			cvtColor(subframe[i],f3,COLOR_BGR2GRAY);
+			calcOpticalFlowFarneback(f2,f3, flow_raw, 0.5, 2, 5, 2, 3, 1.2, 0);
 			//printf("tock\n");
 		}
 		turn = !turn;
 	
 		Scalar fmean,fstddev;
 		
-		meanStdDev(flow,fmean,fstddev,noArray());
+		meanStdDev(flow_raw,fmean,fstddev,noArray());
 		
 		float normalize = sqrt(fmean[0] * fmean[0] + fmean[1] * fmean[1]) + sqrt(fstddev[0] * fstddev[0] + fstddev[1] * fstddev[1]);
 		float meanflow = sqrt(fmean[0] * fmean[0] + fmean[1] * fmean[1]);
@@ -74,19 +89,19 @@ int main(int argc, char** argv )
 		//Scalar  fmean = mean(flow);
 		//float meanval = sqrt(fmean[0] * fmean[0] + fmean[1] * fmean[1]);
 		//printf("%f\n",meanval);
-		split(flow,splitarr);
+		split(flow_raw,splitarr);
 		
 		
 		
-		Mat blank = Mat::zeros(Size(flow.cols, flow.rows), CV_32FC1);
-		Mat flow3(flow.rows, flow.cols, CV_32FC3);
+		Mat blank = Mat::zeros(Size(flow_raw.cols, flow_raw.rows), CV_32FC1);
+		flow[i-1] = Mat(flow_raw.rows, flow_raw.cols, CV_32FC3);
 		Mat conv[] = {splitarr[0],splitarr[1],blank};
-		merge(conv,3,flow3);
+		merge(conv,3,flow[i-1]);
 
 		int bins[36] = {0};
 
 		
-		flow3.forEach<Pixel>([&](Pixel& pixel, const int position[]) -> void {
+		flow[i-1].forEach<Pixel>([&](Pixel& pixel, const int position[]) -> void {
 			float tx = pixel.x;
 			float ty = pixel.y;
 			
@@ -109,8 +124,15 @@ int main(int argc, char** argv )
 				}
 			}
 			
-			if(bin > -1 && bin < 36){ //increment a counter. Bins needs to be replaced by a metric ton of multidimensional arrays
-				bins[bin]++;
+			float mag = sqrt(tx*tx + ty*ty);
+			
+			int binx = ceilf(position[0]/10);
+			int biny = ceilf(position[1]/10);
+			if(bin > -1 && bin < 36 && isfinite(mag)){ //increment a counter.
+				directions[timeslot][binx][biny][bin]+=mag;//as long as the direction and magnitude are real, increment the four counters
+				directions[timeslot][binx+1][biny][bin]+=mag;
+				directions[timeslot][binx][biny+1][bin]+=mag;
+				directions[timeslot][binx+1][biny+1][bin]+=mag;
 			}
 			//There is a rotating queue of bins. Implement a 90 frame queue, perhaps?
 			//90 frame main queue 640*480 3channel (circular).
@@ -121,7 +143,7 @@ int main(int argc, char** argv )
 			
 			pixel.x = (float)bin*10.0; //Turns previous angle into a standard 360 degree representation.
 			
-			float mag = sqrt(tx*tx + ty*ty);
+			
 			if(mag > meanflow){ mag = meanflow/normalize;} else{ mag = 0;}
 			pixel.y = mag;
 			pixel.z = mag;
@@ -129,21 +151,27 @@ int main(int argc, char** argv )
 		});
 
 		
-		int maxval = 0;
-		int maxbin = 0;
 		
-		for(int i = 0; i < 36; i++){
-			if(bins[i]>maxval){maxval = bins[i]; maxbin = i;}
-		}printf("%d\n",maxbin);
+		cvtColor(flow[i-1],flow[i-1],CV_HSV2BGR);
 		
-		cvtColor(flow3,flow3,CV_HSV2BGR);
-		
-		imshow("foo",flow3);
+		imshow("foo",flow[i-1]);
 		
 		waitKey(1);
 	
 	}
 	
+	for(int y = 1; y < 48; y++){
+		for(int x = 1; x < 64; x++){
+			float maxval = 1;
+			int maxbin = -1;
+			for(int i = 0; i < 36; i++){
+				if(directions[0][x][y][i]>maxval){maxval = directions[0][x][y][i]; maxbin = i;}
+			}printf("%2d ",maxbin);
+			
+		}
+		printf("\n");
+		
+	}
 
     return 0;
 
