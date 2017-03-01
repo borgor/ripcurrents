@@ -5,17 +5,23 @@
 #include <opencv2/core/ocl.hpp>
 
 #define WIN_SIZE 30
+#define STABILIZE 10
 
 using namespace cv;
 
 typedef cv::Point_<float> Pixel2;
 typedef cv::Point3_<float> Pixel3;
 
+void wheel();
 
 int main(int argc, char** argv )
 {
 	
-	if(argc <2){printf("No video specified\n");exit(0);}
+	
+	//wheel();
+	
+	
+	if(argc <2){printf("No video specified\n");wheel();}
 	
 	
 	ocl::setUseOpenCL(true);
@@ -42,21 +48,25 @@ int main(int argc, char** argv )
 	Mat flow_raw;
 	
 	Mat flow;
+	Mat stable[STABILIZE];
 	
 	///float directions[10][65][49][36] = {0}; //This will be a massive array. Just yuuge. The biggest. Coordinates as follows: timeframe, column, row, direction bin. Value: intensity in the 20*20 sector in that direction.
 	//printf("%d\n",sizeof(directions));
 	//exit(0);
 	
 	Mat accumulator[WIN_SIZE]; //magnitude of some sort
+	Mat accumulator2[WIN_SIZE]; //magnitude of some sort
 	//switch to multiple views: high magnitude and low magnitude flow
 	//A wave has high magnitude
 	
 	for(int j = 0 ; j< WIN_SIZE; j++){accumulator[j] = Mat::zeros(480, 640, CV_32FC1);}
+	for(int j = 0 ; j< STABILIZE; j++){stable[j] = Mat::zeros(480, 640, CV_32FC2);}
 	Mat ones = Mat::ones(480, 640, CV_32FC1);
 	Mat out = Mat::zeros(480, 640, CV_32FC1);
 	
 	Mat splitarr[2];
 	namedWindow("foo", WINDOW_AUTOSIZE );
+	namedWindow("foo1", WINDOW_AUTOSIZE );
 	
 	
 	int i;
@@ -94,16 +104,23 @@ int main(int argc, char** argv )
 		}
 		turn = !turn;
 		
+		for(int j = 0; j<STABILIZE; j++){
+			add(flow_raw,stable[j],stable[j]);
+		}
 	
-
+		//Scalar fmean,fstddev;
+		//meanStdDev(flow_raw,fmean,fstddev,noArray());
 		
-		flow_raw.forEach<Pixel2>([&](Pixel2& pixel, const int position[]) -> void {
+		
+		Mat current = stable[i%STABILIZE];
+		
+		current.forEach<Pixel2>([&](Pixel2& pixel, const int position[]) -> void {
 			
-			float tx = -pixel.x;
-			float ty = pixel.y;
+			float tx = pixel.x;
+			float ty = -pixel.y;
 			
 			
-			int bin = (int) floor(atan(ty/tx)/M_PI  *36  );//Begins to calculate the angle as an integer between 1 and 35.
+			int bin = (int) floor(atan(ty/tx)/M_PI  *18  );//Begins to calculate the angle as an integer between 1 and 35.
 			
 			
 			
@@ -129,9 +146,7 @@ int main(int argc, char** argv )
 			
 		});
 		
-		//Scalar fmean,fstddev;
-		//meanStdDev(flow_raw,fmean,fstddev,noArray());
-		//float meanflow = fmean[1] + fstddev[1];
+		
 		
 		
 		float meanflow = 0;
@@ -141,7 +156,7 @@ int main(int argc, char** argv )
 		
 		
 		for (int y = 0; y < 480; y++) {
-			Pixel2* ptr = flow_raw.ptr<Pixel2>(y, 0);
+			Pixel2* ptr = current.ptr<Pixel2>(y, 0);
 			const Pixel2* ptr_end = ptr + 640;
 			for (int x = 0 ; ptr != ptr_end; ++ptr, x++) {
 				{meanflow += ptr->y;count++;hist[(int)floor(ptr->y/5)]++;}
@@ -155,9 +170,9 @@ int main(int argc, char** argv )
 		
 		//printf("%f\n",meanflow);
 		//flow_raw.forEach<Pixel2>([&](Pixel2& pixel, const int position[]) -> void { if(pixel.x < 180 && pixel.x > 0 && pixel.y > meanflow ){pixel.y /= meanflow;}else{pixel.y = 0;}});
-		flow_raw.forEach<Pixel2>([&](Pixel2& pixel, const int position[]) -> void { pixel.y -= meanflow;});
+		current.forEach<Pixel2>([&](Pixel2& pixel, const int position[]) -> void {pixel.y /= STABILIZE;  if(pixel.y > 1 || pixel.y < 0  /*|| pixel.x < 0 || pixel.x >180*/){pixel.y = 0;}else{}});
 		//flow_raw.forEach<Pixel2>([&](Pixel2& pixel, const int position[]) -> void { pixel.y /= 10;});
-		split(flow_raw,splitarr);
+		split(current,splitarr);
 
 		
 		
@@ -175,8 +190,10 @@ int main(int argc, char** argv )
 		
 		
 		imshow("foo",flow);
+		imshow("foo1",subframe[i%WIN_SIZE]);
 		
 		accumulator[i%WIN_SIZE] = Mat::zeros(480, 640, CV_32FC1);
+		stable[i%STABILIZE] = Mat::zeros(480, 640, CV_32FC2);
 		
 		waitKey(1);
 		
@@ -190,3 +207,55 @@ int main(int argc, char** argv )
 	return 0;
 	
 }
+
+
+void wheel(){
+	
+	namedWindow("Color Wheel", WINDOW_AUTOSIZE );
+	
+	Mat foo = Mat::ones(480, 480, CV_32FC3);
+	
+	foo.forEach<Pixel3>([&](Pixel3& pixel, const int position[]) -> void {
+		
+		float tx = (position[1]-240)/240.0;
+		float ty = (240-position[0])/240.0;
+		
+		
+		int bin = (int) floor(atan(ty/tx)/M_PI  * 18  );//Begins to calculate the angle as an integer between 1 and 35.
+		
+		
+		
+		if(ty>0){
+			if(tx>0){
+				bin = bin;
+			}else{
+				bin = 18 + bin;
+			}
+		}else{
+			
+			if(tx<0){
+				bin = bin+18;
+			}else{
+				bin = 36 + bin;
+			}
+		}
+		pixel.x = bin * 10;
+		
+		
+		float d = sqrt(tx*tx + ty *ty);
+	
+		
+		pixel.y = d > 1 ? 0 : d;
+		pixel.z = d > 1 ? 0 : 1;
+		
+	});
+	
+	cvtColor(foo,foo,CV_HSV2BGR);
+	imshow("Color Wheel",foo);
+	waitKey(0);
+	
+	exit(0);
+
+	
+}
+
