@@ -6,7 +6,7 @@
 
 #define HISTORY 30
 #define WIN_SIZE 30
-#define STABILIZE 10
+#define STABILIZE 20
 #define BINS 100
 
 #define XDIM 640.0
@@ -14,8 +14,8 @@
 
 //Some thresholds to mask out any remaining jitter, and strong waves. Don't know how to calculate them.
 float LOWER =  0.0;
-float MID  = 5.0;
-float UPPER = 10.0;
+float MID  = .5;
+float UPPER = 1.0;
 float ANGLE = 2.0;
 #define rescale(x) x = (x - LOWER)/(UPPER - LOWER)
 
@@ -41,7 +41,15 @@ int main(int argc, char** argv )
 	
 	ocl::setUseOpenCL(true);
 	
+	char cc[] = "h264";
+	
 	VideoCapture video = VideoCapture(argv[1]);
+	
+	
+	
+	VideoWriter videout = VideoWriter("out.avi",(int)video.get(CV_CAP_PROP_FOURCC) ,(int)video.get(CV_CAP_PROP_FPS),Size(YDIM,XDIM),1);
+	
+	
 	
 	if(argc > 2){
 		FILE * thresholds = fopen(argv[2],"r");
@@ -53,8 +61,9 @@ int main(int argc, char** argv )
 	c = (int) video.get(CAP_PROP_FRAME_WIDTH);
 	r = (int) video.get(CAP_PROP_FRAME_HEIGHT);
 	
-	
-	
+	printf("%f\n",video.get(CV_CAP_PROP_FOURCC));
+	printf("%d\n",VideoWriter::fourcc(cc[0],cc[1],cc[2],cc[3]));
+	//exit(0);
 	
 	float scalex = XDIM/c;
 	float scaley = YDIM/r;
@@ -137,7 +146,7 @@ int main(int argc, char** argv )
 		//meanStdDev(flow_raw,fmean,fstddev,noArray());
 		
 		
-		Mat current = stable[i%STABILIZE];
+		Mat current = stable[i%STABILIZE]*(1.0/STABILIZE);
 		
 		current.forEach<Pixel2>([&](Pixel2& pixel, const int position[]) -> void {
 			
@@ -199,12 +208,14 @@ int main(int argc, char** argv )
 		current.forEach<Pixel2>([&](Pixel2& pixel, const int position[]) -> void {
 			
 			Pixel3* classptr = waterclass.ptr<Pixel3>(position[0],position[1]);
+			//Pixel3* origptr = subframe[i%HISTORY].ptr<Pixel3>(position[0],position[1]);
 			Pixel3 * pt = accumulator2.ptr<Pixel3>(position[0],position[1]);
+			float dir = pixel.x;
 			float val = pixel.y  * (1+(1-position[0]/YDIM)*ANGLE);
-			if(val > UPPER){classptr->x = .5; pt->x+= 15;}else{
-				if(val > MID){classptr->y = 1; pt->y ++;}else{
-					if(val > LOWER){classptr->y = .5;}else{
-						classptr->z = .5; pt->z++;
+			if(val > UPPER){classptr->x = .5; pt->x+= 20;}else{
+				if(val > MID && dir < 170 && dir >= 10){classptr->z = 1;}else{
+					if(val > LOWER){classptr->z = .5;}else{
+						 {classptr->y = .5; pt->y++;}
 					}
 				}
 			}
@@ -231,7 +242,7 @@ int main(int argc, char** argv )
 			add(accumulator2,accumulator[j],accumulator[j]);
 		}
 		
-		out = accumulator[(i/10)%WIN_SIZE] * 0.01;
+		out = accumulator[(i/10)%WIN_SIZE] * 0.001;
 		
 		cvtColor(flow,flow,CV_HSV2BGR);
 		
@@ -239,6 +250,8 @@ int main(int argc, char** argv )
 		imshow("Flow",flow);
 		imshow("Classifier",waterclass);
 		imshow("Accumulator",out);
+		
+		videout.write(waterclass);
 		
 		if(i%10 == 9){accumulator[(i/10)%WIN_SIZE] = Mat::zeros(YDIM, XDIM, CV_32FC3);}
 		stable[i%STABILIZE] = Mat::zeros(YDIM, XDIM, CV_32FC2);
@@ -294,6 +307,7 @@ void wheel(){
 			}
 		}
 		pixel.x = bin * 10;
+		
 		
 		
 		float d = sqrt(tx*tx + ty *ty);
