@@ -4,8 +4,20 @@
 #include <opencv2/opencv.hpp>
 #include <opencv2/core/ocl.hpp>
 
+#define HISTORY 30
 #define WIN_SIZE 30
 #define STABILIZE 10
+#define BINS 100
+
+#define XDIM 640.0
+#define YDIM 480.0
+
+//Some thresholds to mask out any remaining jitter, and strong waves. Don't know how to calculate them.
+float LOWER =  0.0;
+float MID  = 5.0;
+float UPPER = 10.0;
+float ANGLE = 2.0;
+#define rescale(x) x = (x - LOWER)/(UPPER - LOWER)
 
 using namespace cv;
 
@@ -13,6 +25,9 @@ typedef cv::Point_<float> Pixel2;
 typedef cv::Point3_<float> Pixel3;
 
 void wheel();
+
+int bins[BINS] = {};
+
 
 int main(int argc, char** argv )
 {
@@ -28,6 +43,12 @@ int main(int argc, char** argv )
 	
 	VideoCapture video = VideoCapture(argv[1]);
 	
+	if(argc > 2){
+		FILE * thresholds = fopen(argv[2],"r");
+		fscanf(thresholds,"%f %f %f %f",&LOWER,&MID,&UPPER,&ANGLE);
+		fclose(thresholds);
+	}
+	
 	int c, r;
 	c = (int) video.get(CAP_PROP_FRAME_WIDTH);
 	r = (int) video.get(CAP_PROP_FRAME_HEIGHT);
@@ -35,15 +56,15 @@ int main(int argc, char** argv )
 	
 	
 	
-	float scalex = 640.0/c;
-	float scaley = 480.0/r;
+	float scalex = XDIM/c;
+	float scaley = YDIM/r;
 	
 	//printf("Dimensions: %d by %d, resized to %3.0f by %3.0f\n",r,c,r*scaley,c*scalex);
 	
 	
  
 	Mat frame;
-	Mat subframe[WIN_SIZE];
+	Mat subframe[HISTORY];
 	Mat f2,f3;
 	Mat flow_raw;
 	
@@ -55,18 +76,22 @@ int main(int argc, char** argv )
 	//exit(0);
 	
 	Mat accumulator[WIN_SIZE]; //magnitude of some sort
-	Mat accumulator2[WIN_SIZE]; //magnitude of some sort
+	//Mat accumulator2[STABILIZE]; //magnitude of some sort
 	//switch to multiple views: high magnitude and low magnitude flow
 	//A wave has high magnitude
 	
-	for(int j = 0 ; j< WIN_SIZE; j++){accumulator[j] = Mat::zeros(480, 640, CV_32FC1);}
-	for(int j = 0 ; j< STABILIZE; j++){stable[j] = Mat::zeros(480, 640, CV_32FC2);}
-	Mat ones = Mat::ones(480, 640, CV_32FC1);
-	Mat out = Mat::zeros(480, 640, CV_32FC1);
+	for(int j = 0 ; j< HISTORY; j++){accumulator[j] = Mat::zeros(YDIM, XDIM, CV_32FC3);}
+	for(int j = 0 ; j< STABILIZE; j++){stable[j] = Mat::zeros(YDIM, XDIM, CV_32FC2);}
+	
+	Mat ones = Mat::ones(YDIM, XDIM, CV_32FC3);
+	Mat out = Mat::zeros(YDIM, XDIM, CV_32FC3);
 	
 	Mat splitarr[2];
-	namedWindow("foo", WINDOW_AUTOSIZE );
-	namedWindow("foo1", WINDOW_AUTOSIZE );
+	namedWindow("Original", WINDOW_AUTOSIZE );
+	namedWindow("Flow", WINDOW_AUTOSIZE );
+	namedWindow("Classifier", WINDOW_AUTOSIZE );
+	namedWindow("Accumulator", WINDOW_AUTOSIZE );
+	
 	
 	
 	int i;
@@ -91,14 +116,14 @@ int main(int argc, char** argv )
 		
 		video.read(frame);
 		if(frame.empty()){break;}
-		resize(frame,subframe[i%WIN_SIZE],Size(),scalex,scaley,INTER_AREA);
+		resize(frame,subframe[i%HISTORY],Size(),scalex,scaley,INTER_AREA);
 		
 		if(turn){
-			cvtColor(subframe[i%WIN_SIZE],f2,COLOR_BGR2GRAY);
+			cvtColor(subframe[i%HISTORY],f2,COLOR_BGR2GRAY);
 			calcOpticalFlowFarneback(f3,f2, flow_raw, 0.5, 3, 5, 3, 15, 1.2, 0);
 			//printf("tick\n");
 		}else{
-			cvtColor(subframe[i%WIN_SIZE],f3,COLOR_BGR2GRAY);
+			cvtColor(subframe[i%HISTORY],f3,COLOR_BGR2GRAY);
 			calcOpticalFlowFarneback(f2,f3, flow_raw, 0.5, 3, 5, 3, 15, 1.2, 0);
 			//printf("tock\n");
 		}
@@ -149,61 +174,90 @@ int main(int argc, char** argv )
 		
 		
 		
-		float meanflow = 0;
-		int count = 0;
+		int resolution = 50;
 		
-		float maxflow = 0;
-		
-		
-		for (int y = 0; y < 480; y++) {
+		for (int y = 0; y < YDIM; y++) {
 			Pixel2* ptr = current.ptr<Pixel2>(y, 0);
-			const Pixel2* ptr_end = ptr + 640;
+			const Pixel2* ptr_end = ptr + (int)XDIM;
 			for (int x = 0 ; ptr != ptr_end; ++ptr, x++) {
-				{meanflow += ptr->y;count++;hist[(int)floor(ptr->y/5)]++;}
-			//	if(ptr->y > maxflow){maxflow = ptr->y;}
+				//int direction = ptr->x;
+				int bin = (ptr->y)/(UPPER - LOWER)* resolution;
+				if(bin < BINS &&  bins >= 0  /*&& direction >0 && direction<180*/) {bins[bin]++;}
 			}
 		}
+		
+		
+	
 
 		
+
+		Mat accumulator2 = Mat::zeros(YDIM, XDIM, CV_32FC3);
+		Mat waterclass = Mat::zeros(YDIM, XDIM, CV_32FC3);
 		
-		meanflow /= count; //need to use statistical methods to find mean instead
+
 		
-		//printf("%f\n",meanflow);
-		//flow_raw.forEach<Pixel2>([&](Pixel2& pixel, const int position[]) -> void { if(pixel.x < 180 && pixel.x > 0 && pixel.y > meanflow ){pixel.y /= meanflow;}else{pixel.y = 0;}});
-		current.forEach<Pixel2>([&](Pixel2& pixel, const int position[]) -> void {pixel.y /= STABILIZE;  if(pixel.y > 1 || pixel.y < 0  /*|| pixel.x < 0 || pixel.x >180*/){pixel.y = 0;}else{}});
+		current.forEach<Pixel2>([&](Pixel2& pixel, const int position[]) -> void {
+			
+			Pixel3* classptr = waterclass.ptr<Pixel3>(position[0],position[1]);
+			Pixel3 * pt = accumulator2.ptr<Pixel3>(position[0],position[1]);
+			float val = pixel.y  * (1+(1-position[0]/YDIM)*ANGLE);
+			if(val > UPPER){classptr->x = .5; pt->x+= 15;}else{
+				if(val > MID){classptr->y = 1; pt->y ++;}else{
+					if(val > LOWER){classptr->y = .5;}else{
+						classptr->z = .5; pt->z++;
+					}
+				}
+			}
+			
+			if(val < UPPER){
+				if(val> LOWER){
+					rescale(val);
+					pixel.y = val;
+				}else{
+					pixel.y = 0;
+				}
+			}
+		});
 		//flow_raw.forEach<Pixel2>([&](Pixel2& pixel, const int position[]) -> void { pixel.y /= 10;});
 		split(current,splitarr);
 
 		
 		
-		flow = Mat(480, 640, CV_32FC3);
+		flow = Mat(YDIM, XDIM, CV_32FC3);
 		Mat conv[] = {splitarr[0],splitarr[1],splitarr[1]};
 		merge(conv,3,flow);
 		
 		for(int j = 0; j<WIN_SIZE; j++){
-			add(splitarr[1],accumulator[j],accumulator[j]);
+			add(accumulator2,accumulator[j],accumulator[j]);
 		}
 		
-		multiply(accumulator[i%WIN_SIZE],ones,out,1.0);
+		out = accumulator[(i/10)%WIN_SIZE] * 0.01;
 		
 		cvtColor(flow,flow,CV_HSV2BGR);
 		
+		imshow("Original",subframe[i%HISTORY]);
+		imshow("Flow",flow);
+		imshow("Classifier",waterclass);
+		imshow("Accumulator",out);
 		
-		imshow("foo",flow);
-		imshow("foo1",subframe[i%WIN_SIZE]);
-		
-		accumulator[i%WIN_SIZE] = Mat::zeros(480, 640, CV_32FC1);
-		stable[i%STABILIZE] = Mat::zeros(480, 640, CV_32FC2);
+		if(i%10 == 9){accumulator[(i/10)%WIN_SIZE] = Mat::zeros(YDIM, XDIM, CV_32FC3);}
+		stable[i%STABILIZE] = Mat::zeros(YDIM, XDIM, CV_32FC2);
 		
 		waitKey(1);
 		
 	}
-	/*
-	for(int i = 0; i < 40; i++){
-		printf("%5d ",hist[i]);
-	}
-	*/
-	printf("\n");
+	
+		
+		
+		for(int j = 0; j< BINS; j++){
+			printf("%6d ,",bins[j]);
+			
+		}
+		printf("\n------\n");
+	
+	
+	//waitKey(0);
+
 	return 0;
 	
 }
@@ -213,7 +267,7 @@ void wheel(){
 	
 	namedWindow("Color Wheel", WINDOW_AUTOSIZE );
 	
-	Mat foo = Mat::ones(480, 480, CV_32FC3);
+	Mat foo = Mat::ones(YDIM, YDIM, CV_32FC3);
 	
 	foo.forEach<Pixel3>([&](Pixel3& pixel, const int position[]) -> void {
 		
