@@ -47,8 +47,38 @@ int main(int argc, char** argv )
 	
 	
 	
-	VideoWriter videout = VideoWriter("out.avi",(int)video.get(CV_CAP_PROP_FOURCC) ,(int)video.get(CV_CAP_PROP_FPS),Size(YDIM,XDIM),1);
+	cv::VideoWriter videoflow("outputflow.mp4",
+							   video.get(CV_CAP_PROP_FOURCC),
+							   video.get(CV_CAP_PROP_FPS),
+							   cv::Size(XDIM, YDIM));
 	
+	if (!videoflow.isOpened())
+	{
+		std::cout << "!!! Output video could not be opened" << std::endl;
+		exit(-1);
+	}
+	
+	cv::VideoWriter videoagg("outputagg.mp4",
+							  video.get(CV_CAP_PROP_FOURCC),
+							  video.get(CV_CAP_PROP_FPS),
+							  cv::Size(XDIM, YDIM));
+	
+	if (!videoagg.isOpened())
+	{
+		std::cout << "!!! Output video could not be opened" << std::endl;
+		exit(-1);
+	}
+	
+	cv::VideoWriter videoclass("outputclass.mp4",
+							  video.get(CV_CAP_PROP_FOURCC),
+							  video.get(CV_CAP_PROP_FPS),
+							  cv::Size(XDIM, YDIM));
+	
+	if (!videoclass.isOpened())
+	{
+		std::cout << "!!! Output video could not be opened" << std::endl;
+		exit(-1);
+	}
 	
 	
 	if(argc > 2){
@@ -61,8 +91,8 @@ int main(int argc, char** argv )
 	c = (int) video.get(CAP_PROP_FRAME_WIDTH);
 	r = (int) video.get(CAP_PROP_FRAME_HEIGHT);
 	
-	printf("%f\n",video.get(CV_CAP_PROP_FOURCC));
-	printf("%d\n",VideoWriter::fourcc(cc[0],cc[1],cc[2],cc[3]));
+	//printf("%f\n",video.get(CV_CAP_PROP_FOURCC));
+	//printf("%d\n",VideoWriter::fourcc(cc[0],cc[1],cc[2],cc[3]));
 	//exit(0);
 	
 	float scalex = XDIM/c;
@@ -71,7 +101,7 @@ int main(int argc, char** argv )
 	//printf("Dimensions: %d by %d, resized to %3.0f by %3.0f\n",r,c,r*scaley,c*scalex);
 	
 	
- 
+	Mat save;
 	Mat frame;
 	Mat subframe[HISTORY];
 	Mat f2,f3;
@@ -112,10 +142,8 @@ int main(int argc, char** argv )
 	if(frame.empty()){exit(1);}
 	resize(frame,subframe[0],Size(),scalex,scaley,INTER_AREA);
 	cvtColor(subframe[0],f2,COLOR_BGR2GRAY);
+
 	
-	
-	
-	//exit(0);
 	int hist[100] = {0};
 
 	
@@ -124,7 +152,9 @@ int main(int argc, char** argv )
 		
 		
 		video.read(frame);
+		
 		if(frame.empty()){break;}
+		
 		resize(frame,subframe[i%HISTORY],Size(),scalex,scaley,INTER_AREA);
 		
 		if(turn){
@@ -246,17 +276,26 @@ int main(int argc, char** argv )
 		
 		cvtColor(flow,flow,CV_HSV2BGR);
 		
+		
+		/*
 		imshow("Original",subframe[i%HISTORY]);
 		imshow("Flow",flow);
 		imshow("Classifier",waterclass);
 		imshow("Accumulator",out);
+		waitKey(1);
+		*/
+		flow.convertTo(save,CV_8UC3,255);
+		videoflow.write(save);
 		
-		videout.write(waterclass);
+		waterclass.convertTo(save,CV_8UC3,255);
+		videoclass.write(save);
+		out.convertTo(save,CV_8UC3,255);
+		videoagg.write(save);
 		
 		if(i%10 == 9){accumulator[(i/10)%WIN_SIZE] = Mat::zeros(YDIM, XDIM, CV_32FC3);}
 		stable[i%STABILIZE] = Mat::zeros(YDIM, XDIM, CV_32FC2);
 		
-		waitKey(1);
+		
 		
 	}
 	
@@ -270,7 +309,10 @@ int main(int argc, char** argv )
 	
 	
 	//waitKey(0);
-
+	video.release();
+	videoflow.release();
+	videoclass.release();
+	videoagg.release();
 	return 0;
 	
 }
@@ -318,8 +360,10 @@ void wheel(){
 		
 	});
 	
+	
 	cvtColor(foo,foo,CV_HSV2BGR);
 	imshow("Color Wheel",foo);
+	
 	waitKey(0);
 	
 	exit(0);
