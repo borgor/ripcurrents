@@ -102,13 +102,18 @@ int main(int argc, char** argv )
 	
 	
 	Mat save;
-	Mat frame;
+	Mat frame,f2;
 	Mat subframe[HISTORY];
-	Mat f2,f3;
+	Mat resized;
 	Mat flow_raw;
 	
 	Mat flow;
 	Mat stable[STABILIZE];
+	
+	
+	
+	UMat u_flow;
+	UMat u_f1,u_f2;
 	
 	///float directions[10][65][49][36] = {0}; //This will be a massive array. Just yuuge. The biggest. Coordinates as follows: timeframe, column, row, direction bin. Value: intensity in the 20*20 sector in that direction.
 	//printf("%d\n",sizeof(directions));
@@ -142,7 +147,7 @@ int main(int argc, char** argv )
 	if(frame.empty()){exit(1);}
 	resize(frame,subframe[0],Size(),scalex,scaley,INTER_AREA);
 	cvtColor(subframe[0],f2,COLOR_BGR2GRAY);
-
+	f2.copyTo(u_f1);
 	
 	int hist[100] = {0};
 
@@ -156,17 +161,20 @@ int main(int argc, char** argv )
 		if(frame.empty()){break;}
 		
 		resize(frame,subframe[i%HISTORY],Size(),scalex,scaley,INTER_AREA);
-		
+		cvtColor(subframe[i%HISTORY],f2,COLOR_BGR2GRAY);
 		if(turn){
 			cvtColor(subframe[i%HISTORY],f2,COLOR_BGR2GRAY);
-			calcOpticalFlowFarneback(f3,f2, flow_raw, 0.5, 3, 5, 3, 15, 1.2, 0);
+			f2.copyTo(u_f1);
+			calcOpticalFlowFarneback(u_f2,u_f1, u_flow, 0.5, 3, 5, 3, 15, 1.2, 0);
 			//printf("tick\n");
 		}else{
-			cvtColor(subframe[i%HISTORY],f3,COLOR_BGR2GRAY);
-			calcOpticalFlowFarneback(f2,f3, flow_raw, 0.5, 3, 5, 3, 15, 1.2, 0);
+			f2.copyTo(u_f2);
+			calcOpticalFlowFarneback(u_f1,u_f2, u_flow, 0.5, 3, 5, 3, 15, 1.2, 0);
 			//printf("tock\n");
 		}
 		turn = !turn;
+		
+		flow_raw = u_flow.getMat(ACCESS_READ);
 		
 		for(int j = 0; j<STABILIZE; j++){
 			add(flow_raw,stable[j],stable[j]);
@@ -277,13 +285,13 @@ int main(int argc, char** argv )
 		cvtColor(flow,flow,CV_HSV2BGR);
 		
 		
-		/*
+		
 		imshow("Original",subframe[i%HISTORY]);
 		imshow("Flow",flow);
 		imshow("Classifier",waterclass);
 		imshow("Accumulator",out);
 		waitKey(1);
-		*/
+		
 		flow.convertTo(save,CV_8UC3,255);
 		videoflow.write(save);
 		
