@@ -154,10 +154,11 @@ int main(int argc, char** argv )
 	
 	for( i = 1; true; i++){//fix video read, right now it's 1/4 realtime.
 
-		
+		for(int j = 0; j< 3; j++){
 		
 		video.read(frame);
-		
+		}
+			
 		if(frame.empty()){break;}
 		
 		resize(frame,subframe[i%HISTORY],Size(),scalex,scaley,INTER_AREA);
@@ -315,6 +316,8 @@ int main(int argc, char** argv )
 		}
 		printf("\n------\n");
 	
+	
+	flow_raw.release();
 	
 	//waitKey(0);
 	video.release();
