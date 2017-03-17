@@ -5,7 +5,6 @@
 #include <opencv2/core/ocl.hpp>
 
 #define HISTORY 30
-#define WIN_SIZE 20
 #define STABILIZE 20
 #define THRESH_BINS 100 //for finding thresholds
 
@@ -109,16 +108,9 @@ int main(int argc, char** argv )
 	UMat u_flow;
 	UMat u_f1,u_f2;
 	
-	///float directions[10][65][49][36] = {0}; //This will be a massive array. Just yuuge. The biggest. Coordinates as follows: timeframe, column, row, direction bin. Value: intensity in the 20*20 sector in that direction.
-	//printf("%d\n",sizeof(directions));
-	//exit(0);
 	
-	Mat accumulator[WIN_SIZE]; //magnitude of some sort
-	//Mat accumulator2[STABILIZE]; //magnitude of some sort
-	//switch to multiple views: high magnitude and low magnitude flow
-	//A wave has high magnitude
 	
-	for(int j = 0 ; j< HISTORY; j++){accumulator[j] = Mat::zeros(YDIM, XDIM, CV_32FC3);}
+	Mat accumulator = Mat::zeros(YDIM, XDIM, CV_32FC3);
 	for(int j = 0 ; j< STABILIZE; j++){stable[j] = Mat::zeros(YDIM, XDIM, CV_32FC2);}
 	
 	Mat ones = Mat::ones(YDIM, XDIM, CV_32FC3);
@@ -151,8 +143,9 @@ int main(int argc, char** argv )
 		
 		
 		video.read(frame);
+		video.read(frame); //skip frames for speed
 		video.read(frame);
-			
+		
 		if(frame.empty()){break;}
 		
 		resize(frame,subframe[i%HISTORY],Size(),scalex,scaley,INTER_AREA);
@@ -277,20 +270,19 @@ int main(int argc, char** argv )
 		Mat conv[] = {splitarr[0],splitarr[1],splitarr[1]};
 		merge(conv,3,flow);
 		
-		for(int j = 0; j<WIN_SIZE; j++){
-			add(accumulator2,accumulator[j],accumulator[j]);
-		}
 		
-		if(i%10 == 9){
-			if(i > WIN_SIZE*10){
-				out = accumulator[(i/10)%WIN_SIZE];
+		add(accumulator2,accumulator,accumulator);
+		
+		
+		
+		accumulator.copyTo(out);
 				out.forEach<Pixel3>([&](Pixel3& pixel, const int position[]) -> void {
 					int val = pixel.x;
 					pixel.x = 0;
 					pixel.y = 0;
 					pixel.z = 0;
-					if(val > 30){
-						if(val < 70){
+					if(val > .15 * i){
+						if(val < .4 * i){
 							pixel.z = 1;
 						}else{
 							pixel.x = 1;
@@ -303,10 +295,8 @@ int main(int argc, char** argv )
 				
 				out.convertTo(save,CV_8UC3,255);
 				videoagg.write(save);
-			}
-			accumulator[(i/10)%WIN_SIZE] = Mat::zeros(YDIM, XDIM, CV_32FC3);
-			
-		}
+		
+	
 		
 		
 		cvtColor(flow,flow,CV_HSV2BGR);
