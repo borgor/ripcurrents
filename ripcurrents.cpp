@@ -5,18 +5,18 @@
 #include <opencv2/core/ocl.hpp>
 
 #define HISTORY 30
-#define WIN_SIZE 30
+#define WIN_SIZE 20
 #define STABILIZE 20
-#define BINS 100
+#define THRESH_BINS 100 //for finding thresholds
 
 #define XDIM 640.0
 #define YDIM 480.0
 
 //Some thresholds to mask out any remaining jitter, and strong waves. Don't know how to calculate them.
-float LOWER =  0.0;
+float LOWER =  0.2;
 float MID  = .5;
-float UPPER = 1.0;
-float ANGLE = 2.0;
+float UPPER = 100.0;
+
 #define rescale(x) x = (x - LOWER)/(UPPER - LOWER)
 
 using namespace cv;
@@ -26,7 +26,7 @@ typedef cv::Point3_<float> Pixel3;
 
 void wheel();
 
-int bins[BINS] = {};
+
 
 
 int main(int argc, char** argv )
@@ -80,12 +80,6 @@ int main(int argc, char** argv )
 		exit(-1);
 	}
 	
-	
-	if(argc > 2){
-		FILE * thresholds = fopen(argv[2],"r");
-		fscanf(thresholds,"%f %f %f %f",&LOWER,&MID,&UPPER,&ANGLE);
-		fclose(thresholds);
-	}
 	
 	int c, r;
 	c = (int) video.get(CAP_PROP_FRAME_WIDTH);
@@ -149,15 +143,15 @@ int main(int argc, char** argv )
 	cvtColor(subframe[0],f2,COLOR_BGR2GRAY);
 	f2.copyTo(u_f1);
 	
-	int hist[100] = {0};
-
+	int hist[THRESH_BINS] = {0};
+	int histsum = 0;
 	
-	for( i = 1; i< 90; i++){//fix video read, right now it's 1/4 realtime.
+	for( i = 1; true; i++){//fix video read, right now it's 1/4 realtime.
 
 		
 		
 		video.read(frame);
-		
+		video.read(frame);
 			
 		if(frame.empty()){break;}
 		
@@ -222,20 +216,26 @@ int main(int argc, char** argv )
 		
 		
 		
-		int resolution = 50;
+		int resolution = 10;
 		
 		for (int y = 0; y < YDIM; y++) {
 			Pixel2* ptr = current.ptr<Pixel2>(y, 0);
 			const Pixel2* ptr_end = ptr + (int)XDIM;
 			for (int x = 0 ; ptr != ptr_end; ++ptr, x++) {
-				//int direction = ptr->x;
 				int bin = (ptr->y) * resolution;
-				if(bin < BINS &&  bins >= 0  /*&& direction >0 && direction<180*/) {bins[bin]++;}
+				if(bin < THRESH_BINS &&  bin >= 0  /*&& direction >0 && direction<180*/) {hist[bin]++; histsum++;}
+				
 			}
 		}
 		
-		
-	
+		int threshsum = 0;
+		int bin = THRESH_BINS-1;
+		while(threshsum < (histsum*.03)){
+			threshsum += hist[bin];
+			bin--;
+		}
+		UPPER = bin/float(resolution);
+		//printf("%f\n",UPPER);
 
 		
 
@@ -250,11 +250,11 @@ int main(int argc, char** argv )
 			//Pixel3* origptr = subframe[i%HISTORY].ptr<Pixel3>(position[0],position[1]);
 			Pixel3 * pt = accumulator2.ptr<Pixel3>(position[0],position[1]);
 			float dir = pixel.x;
-			float val = pixel.y  * (1+(1-position[0]/YDIM)*ANGLE);
-			if(val > UPPER){classptr->x = .5; pt->x+= 20;}else{
+			float val = pixel.y ;
+			if(val > UPPER){classptr->x = .5; pt->x++;}else{
 				if(val > MID){classptr->z = 1;}else{
 					if(val > LOWER){classptr->z = .5;}else{
-						 {classptr->y = .5; pt->y++;}
+						 {classptr->y = .5;}
 					}
 				}
 			}
@@ -268,7 +268,7 @@ int main(int argc, char** argv )
 				}
 			}
 		});
-		//flow_raw.forEach<Pixel2>([&](Pixel2& pixel, const int position[]) -> void { pixel.y /= 10;});
+		
 		split(current,splitarr);
 
 		
@@ -281,7 +281,33 @@ int main(int argc, char** argv )
 			add(accumulator2,accumulator[j],accumulator[j]);
 		}
 		
-		out = accumulator[(i/10)%WIN_SIZE] * 0.001;
+		if(i%10 == 9){
+			if(i > WIN_SIZE*10){
+				out = accumulator[(i/10)%WIN_SIZE];
+				out.forEach<Pixel3>([&](Pixel3& pixel, const int position[]) -> void {
+					int val = pixel.x;
+					pixel.x = 0;
+					pixel.y = 0;
+					pixel.z = 0;
+					if(val > 30){
+						if(val < 70){
+							pixel.z = 1;
+						}else{
+							pixel.x = 1;
+						}
+					}else{
+						pixel.y = 1;
+					}
+				});
+				imshow("Accumulator",out);
+				
+				out.convertTo(save,CV_8UC3,255);
+				videoagg.write(save);
+			}
+			accumulator[(i/10)%WIN_SIZE] = Mat::zeros(YDIM, XDIM, CV_32FC3);
+			
+		}
+		
 		
 		cvtColor(flow,flow,CV_HSV2BGR);
 		
@@ -290,7 +316,7 @@ int main(int argc, char** argv )
 		imshow("Original",subframe[i%HISTORY]);
 		imshow("Flow",flow);
 		imshow("Classifier",waterclass);
-		imshow("Accumulator",out);
+		
 		waitKey(1);
 		
 		flow.convertTo(save,CV_8UC3,255);
@@ -298,10 +324,9 @@ int main(int argc, char** argv )
 		
 		waterclass.convertTo(save,CV_8UC3,255);
 		videoclass.write(save);
-		out.convertTo(save,CV_8UC3,255);
-		videoagg.write(save);
 		
-		if(i%10 == 9){accumulator[(i/10)%WIN_SIZE] = Mat::zeros(YDIM, XDIM, CV_32FC3);}
+		
+		
 		stable[i%STABILIZE] = Mat::zeros(YDIM, XDIM, CV_32FC2);
 		
 		
@@ -309,13 +334,13 @@ int main(int argc, char** argv )
 	}
 	
 		
-		
-		for(int j = 0; j< BINS; j++){
-			printf("%6d ,",bins[j]);
+		/*
+		for(int j = 0; j< THRESH_BINS; j++){
+			printf("%6d ,",hist[j]);
 			
 		}
 		printf("\n------\n");
-	
+		 */
 	
 	flow_raw.release();
 	
