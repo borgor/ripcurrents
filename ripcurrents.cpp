@@ -69,7 +69,7 @@ int main(int argc, char** argv )
 		std::cout << "!!! Output video could not be opened" << std::endl;
 		exit(-1);
 	}
-	*/
+	
 	cv::VideoWriter videoagg("outputagg.mp4",
 							  video.get(CV_CAP_PROP_FOURCC),
 							  video.get(CV_CAP_PROP_FPS),
@@ -80,7 +80,7 @@ int main(int argc, char** argv )
 		std::cout << "!!! Output video could not be opened" << std::endl;
 		exit(-1);
 	}
-	/*
+	
 	cv::VideoWriter videoclass("outputclass.mp4",
 							  video.get(CV_CAP_PROP_FOURCC),
 							  video.get(CV_CAP_PROP_FPS),
@@ -133,7 +133,7 @@ int main(int argc, char** argv )
 	namedWindow("Rip Current Detector", WINDOW_AUTOSIZE );
 	//namedWindow("Flow", WINDOW_AUTOSIZE );
 	//namedWindow("Classifier", WINDOW_AUTOSIZE );
-	namedWindow("Accumulator", WINDOW_AUTOSIZE );
+	//namedWindow("Accumulator", WINDOW_AUTOSIZE );
 	
 	
 	
@@ -294,7 +294,7 @@ int main(int argc, char** argv )
 			Pixel3* accptr = accumulator.ptr<Pixel3>(position[0],position[1]);
 
 			int val = accptr->x;
-			if(val > .15 * i){
+			if(val > .05 * i){
 				if(val < .4 * i){
 					pixel.z = float(val) / i;
 				}else{
@@ -332,7 +332,7 @@ int main(int argc, char** argv )
 
 		
 		
-		if(i>HISTORY){
+		if(i>90){
 			subframe[i%HISTORY].forEach<Pixelc>([&](Pixelc& pixel, const int position[]) -> void {
 				Pixelc* over = overlay.ptr<Pixelc>(position[0],position[1]);
 				if(over->z == 4){
@@ -341,17 +341,15 @@ int main(int argc, char** argv )
 			});
 		}
 	
-		imshow("Accumulator",out);
+		//imshow("Accumulator",out);
 		
 		imshow("Rip Current Detector",subframe[i%HISTORY]);
 		
 		
 		video_out.write(subframe[i%HISTORY]);
 
-		out.convertTo(save,CV_8UC3,255);
-		videoagg.write(save);
-		
-	
+		//out.convertTo(save,CV_8UC3,255);
+		//videoagg.write(save);
 		
 		
 		//cvtColor(flow,flow,CV_HSV2BGR);
