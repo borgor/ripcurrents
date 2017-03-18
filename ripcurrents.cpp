@@ -20,6 +20,7 @@ float UPPER = 100.0;
 
 using namespace cv;
 
+typedef cv::Point3_<char> Pixelc;
 typedef cv::Point_<float> Pixel2;
 typedef cv::Point3_<float> Pixel3;
 
@@ -44,7 +45,19 @@ int main(int argc, char** argv )
 	
 	VideoCapture video = VideoCapture(argv[1]);
 	
+	cv::VideoWriter video_out("video_out.mp4",
+							  video.get(CV_CAP_PROP_FOURCC),
+							  video.get(CV_CAP_PROP_FPS)/3,
+							  cv::Size(XDIM, YDIM));
 	
+	if (!video_out.isOpened())
+	{
+		std::cout << "!!! Output video could not be opened" << std::endl;
+		exit(-1);
+	}
+
+	
+	/*
 	
 	cv::VideoWriter videoflow("outputflow.mp4",
 							   video.get(CV_CAP_PROP_FOURCC),
@@ -56,7 +69,7 @@ int main(int argc, char** argv )
 		std::cout << "!!! Output video could not be opened" << std::endl;
 		exit(-1);
 	}
-	
+	*/
 	cv::VideoWriter videoagg("outputagg.mp4",
 							  video.get(CV_CAP_PROP_FOURCC),
 							  video.get(CV_CAP_PROP_FPS),
@@ -67,7 +80,7 @@ int main(int argc, char** argv )
 		std::cout << "!!! Output video could not be opened" << std::endl;
 		exit(-1);
 	}
-	
+	/*
 	cv::VideoWriter videoclass("outputclass.mp4",
 							  video.get(CV_CAP_PROP_FOURCC),
 							  video.get(CV_CAP_PROP_FPS),
@@ -78,7 +91,7 @@ int main(int argc, char** argv )
 		std::cout << "!!! Output video could not be opened" << std::endl;
 		exit(-1);
 	}
-	
+	*/
 	
 	int c, r;
 	c = (int) video.get(CAP_PROP_FRAME_WIDTH);
@@ -117,9 +130,9 @@ int main(int argc, char** argv )
 	Mat out = Mat::zeros(YDIM, XDIM, CV_32FC3);
 	
 	Mat splitarr[2];
-	namedWindow("Original", WINDOW_AUTOSIZE );
-	namedWindow("Flow", WINDOW_AUTOSIZE );
-	namedWindow("Classifier", WINDOW_AUTOSIZE );
+	namedWindow("Rip Current Detector", WINDOW_AUTOSIZE );
+	//namedWindow("Flow", WINDOW_AUTOSIZE );
+	//namedWindow("Classifier", WINDOW_AUTOSIZE );
 	namedWindow("Accumulator", WINDOW_AUTOSIZE );
 	
 	
@@ -244,13 +257,13 @@ int main(int argc, char** argv )
 			Pixel3 * pt = accumulator2.ptr<Pixel3>(position[0],position[1]);
 			float dir = pixel.x;
 			float val = pixel.y ;
-			if(val > UPPER){classptr->x = .5; pt->x++;}else{
+			if(val > UPPER){/*classptr->x = .5;*/ pt->x++;}/*else{
 				if(val > MID){classptr->z = 1;}else{
 					if(val > LOWER){classptr->z = .5;}else{
 						 {classptr->y = .5;}
 					}
 				}
-			}
+			}*/
 			
 			if(val < UPPER){
 				if(val> LOWER){
@@ -266,54 +279,92 @@ int main(int argc, char** argv )
 
 		
 		
-		flow = Mat(YDIM, XDIM, CV_32FC3);
-		Mat conv[] = {splitarr[0],splitarr[1],splitarr[1]};
-		merge(conv,3,flow);
+		//flow = Mat(YDIM, XDIM, CV_32FC3);
+		//Mat conv[] = {splitarr[0],splitarr[1],splitarr[1]};
+		//merge(conv,3,flow);
 		
 		
 		add(accumulator2,accumulator,accumulator);
 		
 		
 		
-		accumulator.copyTo(out);
-				out.forEach<Pixel3>([&](Pixel3& pixel, const int position[]) -> void {
-					int val = pixel.x;
-					pixel.x = 0;
-					pixel.y = 0;
-					pixel.z = 0;
-					if(val > .15 * i){
-						if(val < .4 * i){
-							pixel.z = 1;
-						}else{
-							pixel.x = 1;
-						}
-					}else{
-						pixel.y = 1;
+		Mat out = Mat::zeros(YDIM, XDIM, CV_32FC3);
+		
+		out.forEach<Pixel3>([&](Pixel3& pixel, const int position[]) -> void {
+			Pixel3* accptr = accumulator.ptr<Pixel3>(position[0],position[1]);
+
+			int val = accptr->x;
+			if(val > .2 * i){
+				if(val < .4 * i){
+					pixel.z = float(val) / i;
+				}else{
+					pixel.x = float(val) / i;
+				}
+			}else{
+					pixel.y = float(val) / i;
+			}
+		});
+		
+		Mat overlay = Mat::zeros(YDIM, XDIM, CV_8UC3);
+		
+		//Find green surrounded by red in accumulator image
+#define localwin 20
+		
+		for (int y = 0; y < YDIM- localwin*2; y+=localwin) {
+			for (int x = 0 ; x < XDIM - localwin*2; x+=localwin) {
+				int hisum = 0; int losum = 0;
+				for(int k = 0; k < localwin*2; k++){
+					for(int j = 0; j<localwin*2; j++){
+						if(out.ptr<Pixel3>(y+j, x+k)->z){hisum++;}
+						if(out.ptr<Pixel3>(y+j, x+k)->y){losum++;}
 					}
-				});
-				imshow("Accumulator",out);
-				
-				out.convertTo(save,CV_8UC3,255);
-				videoagg.write(save);
+				}
+				if(hisum > localwin*localwin && losum > localwin*localwin){
+					//printf("%d %d\n",hisum,losum);
+					for(int k = 0; k < localwin*2; k++){
+						for(int j = 0; j<localwin*2; j++){
+							if(out.ptr<Pixel3>(y+j, x+k)->y){overlay.ptr<Pixelc>(y+j, x+k)->z ++;}
+						}
+					}
+				}
+			}
+		}
+
+		
+		
+		if(i>HISTORY){
+			subframe[i%HISTORY].forEach<Pixelc>([&](Pixelc& pixel, const int position[]) -> void {
+				Pixelc* over = overlay.ptr<Pixelc>(position[0],position[1]);
+				if(over->z == 4){
+					pixel.z = 255;
+				}
+			});
+		}
+	
+		imshow("Accumulator",out);
+		
+		imshow("Rip Current Detector",subframe[i%HISTORY]);
+		
+		
+		video_out.write(subframe[i%HISTORY]);
+
+		out.convertTo(save,CV_8UC3,255);
+		videoagg.write(save);
 		
 	
 		
 		
-		cvtColor(flow,flow,CV_HSV2BGR);
-		
-		
-		
-		imshow("Original",subframe[i%HISTORY]);
-		imshow("Flow",flow);
-		imshow("Classifier",waterclass);
+		//cvtColor(flow,flow,CV_HSV2BGR);
+		//imshow("Flow",flow);
+		//imshow("Classifier",waterclass);
 		
 		waitKey(1);
 		
-		flow.convertTo(save,CV_8UC3,255);
-		videoflow.write(save);
+		//flow.convertTo(save,CV_8UC3,255);
+		//videoflow.write(save);
 		
-		waterclass.convertTo(save,CV_8UC3,255);
-		videoclass.write(save);
+		//waterclass.convertTo(save,CV_8UC3,255);
+		//videoclass.write(save);
 		
 		
 		
@@ -336,9 +387,10 @@ int main(int argc, char** argv )
 	
 	//waitKey(0);
 	video.release();
-	videoflow.release();
-	videoclass.release();
-	videoagg.release();
+	video_out.release();
+	//videoflow.release();
+	//videoclass.release();
+	//videoagg.release();
 	return 0;
 	
 }
