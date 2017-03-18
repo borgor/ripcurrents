@@ -294,7 +294,7 @@ int main(int argc, char** argv )
 			Pixel3* accptr = accumulator.ptr<Pixel3>(position[0],position[1]);
 
 			int val = accptr->x;
-			if(val > .2 * i){
+			if(val > .15 * i){
 				if(val < .4 * i){
 					pixel.z = float(val) / i;
 				}else{
