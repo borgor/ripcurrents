@@ -278,7 +278,7 @@ int main(int argc, char** argv )
 		split(current,splitarr);
 
 		
-		
+		/*
 		flow = Mat(YDIM, XDIM, CV_32FC3);
 		Mat conv[] = {splitarr[0],splitarr[1],splitarr[1]};
 		merge(conv,3,flow);
@@ -286,7 +286,7 @@ int main(int argc, char** argv )
 		imshow("Flow",flow);
 		
 		add(accumulator2,accumulator,accumulator);
-		
+		*/
 		
 		
 		Mat out = Mat::zeros(YDIM, XDIM, CV_32FC3);
@@ -320,7 +320,7 @@ int main(int argc, char** argv )
 						if(out.ptr<Pixel3>(y+j, x+k)->y){losum++;}
 					}
 				}
-				if(hisum > localwin*localwin && losum > localwin*localwin){
+				if(hisum > localwin*localwin/1.5 && losum > localwin*localwin/1.5){
 					//printf("%d %d\n",hisum,losum);
 					for(int k = 0; k < localwin*2; k++){
 						for(int j = 0; j<localwin*2; j++){
