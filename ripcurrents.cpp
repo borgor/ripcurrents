@@ -292,7 +292,7 @@ int main(int argc, char** argv )
 
 			int val = accptr->x;
 			if(val > .05 * i){
-				if(val < .4 * i){
+				if(val < .2 * i){
 					pixel.z = float(val) / i;
 				}else{
 					pixel.x = float(val) / i;
