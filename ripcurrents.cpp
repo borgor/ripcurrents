@@ -131,7 +131,7 @@ int main(int argc, char** argv )
 	
 	Mat splitarr[2];
 	namedWindow("Rip Current Detector", WINDOW_AUTOSIZE );
-	namedWindow("Flow", WINDOW_AUTOSIZE );
+	//namedWindow("Flow", WINDOW_AUTOSIZE );
 	//namedWindow("Classifier", WINDOW_AUTOSIZE );
 	//namedWindow("Accumulator", WINDOW_AUTOSIZE );
 	
@@ -174,7 +174,7 @@ int main(int argc, char** argv )
 			//printf("tock\n");
 		}
 		turn = !turn;
-		
+		continue;
 		flow_raw = u_flow.getMat(ACCESS_READ);
 		
 		for(int j = 0; j<STABILIZE; j++){
