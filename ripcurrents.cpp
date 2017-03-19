@@ -4,7 +4,7 @@
 #include <opencv2/opencv.hpp>
 #include <opencv2/core/ocl.hpp>
 
-#define HISTORY 30
+
 #define STABILIZE 10
 #define THRESH_BINS 100 //for finding thresholds
 
@@ -33,15 +33,11 @@ int main(int argc, char** argv )
 {
 	
 	
-	//wheel();
 	
-	
-	if(argc <2){printf("No video specified\n");wheel();}
+	if(argc <2){printf("No video specified\n");exit(0); }
 	
 	
 	ocl::setUseOpenCL(true);
-	
-	char cc[] = "h264";
 	
 	VideoCapture video = VideoCapture(argv[1]);
 	
@@ -109,7 +105,7 @@ int main(int argc, char** argv )
 	
 	Mat save;
 	Mat frame,f2;
-	Mat subframe[HISTORY];
+	Mat subframe;
 	Mat resized;
 	Mat flow_raw;
 	
@@ -131,9 +127,9 @@ int main(int argc, char** argv )
 	
 	Mat splitarr[2];
 	namedWindow("Rip Current Detector", WINDOW_AUTOSIZE );
-	namedWindow("Flow", WINDOW_AUTOSIZE );
+	//namedWindow("Flow", WINDOW_AUTOSIZE );
 	//namedWindow("Classifier", WINDOW_AUTOSIZE );
-	//namedWindow("Accumulator", WINDOW_AUTOSIZE );
+	namedWindow("Accumulator", WINDOW_AUTOSIZE );
 	
 	
 	
@@ -144,8 +140,8 @@ int main(int argc, char** argv )
 	video.read(frame);
 	
 	if(frame.empty()){exit(1);}
-	resize(frame,subframe[0],Size(),scalex,scaley,INTER_AREA);
-	cvtColor(subframe[0],f2,COLOR_BGR2GRAY);
+	resize(frame,subframe,Size(),scalex,scaley,INTER_AREA);
+	cvtColor(subframe,f2,COLOR_BGR2GRAY);
 	f2.copyTo(u_f1);
 	
 	int hist[THRESH_BINS] = {0};
@@ -161,10 +157,10 @@ int main(int argc, char** argv )
 		
 		if(frame.empty()){break;}
 		
-		resize(frame,subframe[i%HISTORY],Size(),scalex,scaley,INTER_AREA);
-		cvtColor(subframe[i%HISTORY],f2,COLOR_BGR2GRAY);
+		resize(frame,subframe,Size(),scalex,scaley,INTER_AREA);
+		cvtColor(subframe,f2,COLOR_BGR2GRAY);
 		if(turn){
-			cvtColor(subframe[i%HISTORY],f2,COLOR_BGR2GRAY);
+			cvtColor(subframe,f2,COLOR_BGR2GRAY);
 			f2.copyTo(u_f1);
 			calcOpticalFlowFarneback(u_f2,u_f1, u_flow, 0.5, 3, 5, 3, 15, 1.2, 0);
 			//printf("tick\n");
@@ -253,7 +249,7 @@ int main(int argc, char** argv )
 		current.forEach<Pixel2>([&](Pixel2& pixel, const int position[]) -> void {
 			
 			Pixel3* classptr = waterclass.ptr<Pixel3>(position[0],position[1]);
-			//Pixel3* origptr = subframe[i%HISTORY].ptr<Pixel3>(position[0],position[1]);
+			
 			Pixel3 * pt = accumulator2.ptr<Pixel3>(position[0],position[1]);
 			float dir = pixel.x;
 			float val = pixel.y ;
@@ -284,9 +280,9 @@ int main(int argc, char** argv )
 		merge(conv,3,flow);
 		cvtColor(flow,flow,CV_HSV2BGR);
 		imshow("Flow",flow);
-		
-		add(accumulator2,accumulator,accumulator);
 		*/
+		add(accumulator2,accumulator,accumulator);
+		
 		
 		
 		Mat out = Mat::zeros(YDIM, XDIM, CV_32FC3);
@@ -334,7 +330,7 @@ int main(int argc, char** argv )
 		
 		
 		if(i>90){
-			subframe[i%HISTORY].forEach<Pixelc>([&](Pixelc& pixel, const int position[]) -> void {
+			subframe.forEach<Pixelc>([&](Pixelc& pixel, const int position[]) -> void {
 				Pixelc* over = overlay.ptr<Pixelc>(position[0],position[1]);
 				if(over->z == 4){
 					pixel.z = 255;
@@ -342,12 +338,12 @@ int main(int argc, char** argv )
 			});
 		}
 	
-		//imshow("Accumulator",out);
+		imshow("Accumulator",out);
 		
-		imshow("Rip Current Detector",subframe[i%HISTORY]);
+		imshow("Rip Current Detector",subframe);
 		
 		
-		video_out.write(subframe[i%HISTORY]);
+		video_out.write(subframe);
 
 		//out.convertTo(save,CV_8UC3,255);
 		//videoagg.write(save);
@@ -385,7 +381,7 @@ int main(int argc, char** argv )
 	
 	//waitKey(0);
 	video.release();
-	video_out.release();
+	//video_out.release();
 	//videoflow.release();
 	//videoclass.release();
 	//videoagg.release();
