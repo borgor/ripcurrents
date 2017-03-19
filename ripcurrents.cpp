@@ -5,7 +5,7 @@
 #include <opencv2/core/ocl.hpp>
 
 #define HISTORY 30
-#define STABILIZE 20
+#define STABILIZE 10
 #define THRESH_BINS 100 //for finding thresholds
 
 #define XDIM 640.0
@@ -131,7 +131,7 @@ int main(int argc, char** argv )
 	
 	Mat splitarr[2];
 	namedWindow("Rip Current Detector", WINDOW_AUTOSIZE );
-	//namedWindow("Flow", WINDOW_AUTOSIZE );
+	namedWindow("Flow", WINDOW_AUTOSIZE );
 	//namedWindow("Classifier", WINDOW_AUTOSIZE );
 	//namedWindow("Accumulator", WINDOW_AUTOSIZE );
 	
@@ -279,10 +279,11 @@ int main(int argc, char** argv )
 
 		
 		
-		//flow = Mat(YDIM, XDIM, CV_32FC3);
-		//Mat conv[] = {splitarr[0],splitarr[1],splitarr[1]};
-		//merge(conv,3,flow);
-		
+		flow = Mat(YDIM, XDIM, CV_32FC3);
+		Mat conv[] = {splitarr[0],splitarr[1],splitarr[1]};
+		merge(conv,3,flow);
+		cvtColor(flow,flow,CV_HSV2BGR);
+		imshow("Flow",flow);
 		
 		add(accumulator2,accumulator,accumulator);
 		
@@ -352,8 +353,7 @@ int main(int argc, char** argv )
 		//videoagg.write(save);
 		
 		
-		//cvtColor(flow,flow,CV_HSV2BGR);
-		//imshow("Flow",flow);
+		
 		//imshow("Classifier",waterclass);
 		
 		waitKey(1);
