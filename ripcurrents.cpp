@@ -2,19 +2,19 @@
 #include <stdio.h>
 
 #include <opencv2/opencv.hpp>
-#include <opencv2/core/ocl.hpp>
+#include <opencv2/core/ocl.hpp>  //Actually opencv3.2, in spite of the name
 
 
-#define STABILIZE 10
-#define THRESH_BINS 100 //for finding thresholds
+#define STABILIZE 10	//Size of buffer for stabilizing video
+#define THRESH_BINS 100 //Number of bins for finding thresholds
 
-#define XDIM 640.0
+#define XDIM 640.0   //Dimensions to resize to
 #define YDIM 480.0
 
 //Some thresholds to mask out any remaining jitter, and strong waves. Don't know how to calculate them.
 float LOWER =  0.2;
 float MID  = .5;
-float UPPER = 100.0;
+float UPPER = 100.0; //UPPER can be determined programmatically
 
 #define rescale(x) x = (x - LOWER)/(UPPER - LOWER)
 
@@ -24,22 +24,24 @@ typedef cv::Point3_<char> Pixelc;
 typedef cv::Point_<float> Pixel2;
 typedef cv::Point3_<float> Pixel3;
 
-void wheel();
-
-
+void wheel(); //color wheel function
 
 
 int main(int argc, char** argv )
 {
-	
-	
+
 	
 	if(argc <2){printf("No video specified\n");exit(0); }
-	
-	
 	ocl::setUseOpenCL(true);
 	
+	//Video I/O
+	
 	VideoCapture video = VideoCapture(argv[1]);
+	if (!video.isOpened())
+	{
+		std::cout << "!!! Input video could not be opened" << std::endl;
+		exit(-1);
+	}
 	
 	cv::VideoWriter video_out("video_out.mp4",
 							  video.get(CV_CAP_PROP_FOURCC),
@@ -53,101 +55,62 @@ int main(int argc, char** argv )
 	}
 
 	
-	/*
-	
-	cv::VideoWriter videoflow("outputflow.mp4",
-							   video.get(CV_CAP_PROP_FOURCC),
-							   video.get(CV_CAP_PROP_FPS),
-							   cv::Size(XDIM, YDIM));
-	
-	if (!videoflow.isOpened())
-	{
-		std::cout << "!!! Output video could not be opened" << std::endl;
-		exit(-1);
-	}
-	
-	cv::VideoWriter videoagg("outputagg.mp4",
-							  video.get(CV_CAP_PROP_FOURCC),
-							  video.get(CV_CAP_PROP_FPS),
-							  cv::Size(XDIM, YDIM));
-	
-	if (!videoagg.isOpened())
-	{
-		std::cout << "!!! Output video could not be opened" << std::endl;
-		exit(-1);
-	}
-	
-	cv::VideoWriter videoclass("outputclass.mp4",
-							  video.get(CV_CAP_PROP_FOURCC),
-							  video.get(CV_CAP_PROP_FPS),
-							  cv::Size(XDIM, YDIM));
-	
-	if (!videoclass.isOpened())
-	{
-		std::cout << "!!! Output video could not be opened" << std::endl;
-		exit(-1);
-	}
-	*/
-	
 	int c, r;
 	c = (int) video.get(CAP_PROP_FRAME_WIDTH);
 	r = (int) video.get(CAP_PROP_FRAME_HEIGHT);
 	
-	//printf("%f\n",video.get(CV_CAP_PROP_FOURCC));
-	//printf("%d\n",VideoWriter::fourcc(cc[0],cc[1],cc[2],cc[3]));
-	//exit(0);
-	
+
 	float scalex = XDIM/c;
 	float scaley = YDIM/r;
 	
-	//printf("Dimensions: %d by %d, resized to %3.0f by %3.0f\n",r,c,r*scaley,c*scalex);
-	
-	
+	//A lot of matrices/frames
 	Mat save;
 	Mat frame,f2;
 	Mat subframe;
 	Mat resized;
 	Mat flow_raw;
-	
 	Mat flow;
 	Mat stable[STABILIZE];
-	
-	
-	
+
+	//OpenCL/GPU matrices
 	UMat u_flow;
 	UMat u_f1,u_f2;
 	
 	
-	
+	//Zero out accumulators
 	Mat accumulator = Mat::zeros(YDIM, XDIM, CV_32FC3);
 	for(int j = 0 ; j< STABILIZE; j++){stable[j] = Mat::zeros(YDIM, XDIM, CV_32FC2);}
 	
-	Mat ones = Mat::ones(YDIM, XDIM, CV_32FC3);
 	Mat out = Mat::zeros(YDIM, XDIM, CV_32FC3);
 	
 	Mat splitarr[2];
+	
+	//Output windows
 	namedWindow("Rip Current Detector", WINDOW_AUTOSIZE );
-	//namedWindow("Flow", WINDOW_AUTOSIZE );
-	//namedWindow("Classifier", WINDOW_AUTOSIZE );
+	namedWindow("Flow", WINDOW_AUTOSIZE );
+	namedWindow("Classifier", WINDOW_AUTOSIZE );
 	namedWindow("Accumulator", WINDOW_AUTOSIZE );
 	
 	
 	
-	int i;
+	int hist[THRESH_BINS] = {0}; //histogram
+	int histsum = 0;
 	
 	
-	int turn = 0;
+	
+	int i; //Generic iterator for main loop.
+	
+	
+	int turn = 0;  //Alternator
+	
+	//Preload a frame
 	video.read(frame);
-	
 	if(frame.empty()){exit(1);}
 	resize(frame,subframe,Size(),scalex,scaley,INTER_AREA);
 	cvtColor(subframe,f2,COLOR_BGR2GRAY);
 	f2.copyTo(u_f1);
 	
-	int hist[THRESH_BINS] = {0};
-	int histsum = 0;
-	
-	for( i = 1; true; i++){//fix video read, right now it's 1/4 realtime.
+	for( i = 1; true; i++){
 
 		
 		
@@ -157,12 +120,12 @@ int main(int argc, char** argv )
 		
 		if(frame.empty()){break;}
 		
+		//Resize, turn to gray.
 		resize(frame,subframe,Size(),scalex,scaley,INTER_AREA);
 		cvtColor(subframe,f2,COLOR_BGR2GRAY);
 		if(turn){
-			cvtColor(subframe,f2,COLOR_BGR2GRAY);
 			f2.copyTo(u_f1);
-			calcOpticalFlowFarneback(u_f2,u_f1, u_flow, 0.5, 3, 5, 3, 15, 1.2, 0);
+			calcOpticalFlowFarneback(u_f2,u_f1, u_flow, 0.5, 3, 5, 3, 15, 1.2, 0); //Give to GPU
 			//printf("tick\n");
 		}else{
 			f2.copyTo(u_f2);
@@ -171,18 +134,15 @@ int main(int argc, char** argv )
 		}
 		turn = !turn;
 		
-		flow_raw = u_flow.getMat(ACCESS_READ);
+		flow_raw = u_flow.getMat(ACCESS_READ); //Tell GPU to give it back
 		
 		for(int j = 0; j<STABILIZE; j++){
 			add(flow_raw,stable[j],stable[j]);
 		}
-	
-		//Scalar fmean,fstddev;
-		//meanStdDev(flow_raw,fmean,fstddev,noArray());
-		
 		
 		Mat current = stable[i%STABILIZE]*(1.0/STABILIZE);
 		
+		// x-y vector to direction-magnitude
 		current.forEach<Pixel2>([&](Pixel2& pixel, const int position[]) -> void {
 			
 			float tx = pixel.x;
@@ -219,17 +179,18 @@ int main(int argc, char** argv )
 		
 		
 		int resolution = 10;
-		
+		//Fill histogram
 		for (int y = 0; y < YDIM; y++) {
 			Pixel2* ptr = current.ptr<Pixel2>(y, 0);
 			const Pixel2* ptr_end = ptr + (int)XDIM;
 			for (int x = 0 ; ptr != ptr_end; ++ptr, x++) {
 				int bin = (ptr->y) * resolution;
-				if(bin < THRESH_BINS &&  bin >= 0  /*&& direction >0 && direction<180*/) {hist[bin]++; histsum++;}
+				if(bin < THRESH_BINS &&  bin >= 0) {hist[bin]++; histsum++;}
 				
 			}
 		}
 		
+		//Use histogram to create threshold
 		int threshsum = 0;
 		int bin = THRESH_BINS-1;
 		while(threshsum < (histsum*.03)){
@@ -245,7 +206,7 @@ int main(int argc, char** argv )
 		Mat waterclass = Mat::zeros(YDIM, XDIM, CV_32FC3);
 		
 
-		
+		//Classify
 		current.forEach<Pixel2>([&](Pixel2& pixel, const int position[]) -> void {
 			
 			Pixel3* classptr = waterclass.ptr<Pixel3>(position[0],position[1]);
@@ -253,13 +214,13 @@ int main(int argc, char** argv )
 			Pixel3 * pt = accumulator2.ptr<Pixel3>(position[0],position[1]);
 			float dir = pixel.x;
 			float val = pixel.y ;
-			if(val > UPPER){/*classptr->x = .5;*/ pt->x++;}/*else{
+			if(val > UPPER){classptr->x = .5; pt->x++;}else{
 				if(val > MID){classptr->z = 1;}else{
 					if(val > LOWER){classptr->z = .5;}else{
 						 {classptr->y = .5;}
 					}
 				}
-			}*/
+			}
 			
 			if(val < UPPER){
 				if(val> LOWER){
@@ -271,22 +232,26 @@ int main(int argc, char** argv )
 			}
 		});
 		
-		split(current,splitarr);
+		
 
 		
-		/*
+		 //Convert flow to HSV, then BGR, then display
+		split(current,splitarr);
 		flow = Mat(YDIM, XDIM, CV_32FC3);
 		Mat conv[] = {splitarr[0],splitarr[1],splitarr[1]};
 		merge(conv,3,flow);
 		cvtColor(flow,flow,CV_HSV2BGR);
 		imshow("Flow",flow);
-		*/
+		
+		
+		//accumulator accumulates waves
 		add(accumulator2,accumulator,accumulator);
 		
 		
 		
 		Mat out = Mat::zeros(YDIM, XDIM, CV_32FC3);
 		
+		//Identify rip currents
 		out.forEach<Pixel3>([&](Pixel3& pixel, const int position[]) -> void {
 			Pixel3* accptr = accumulator.ptr<Pixel3>(position[0],position[1]);
 
@@ -304,7 +269,7 @@ int main(int argc, char** argv )
 		
 		Mat overlay = Mat::zeros(YDIM, XDIM, CV_8UC3);
 		
-		//Find green surrounded by red in accumulator image
+		//Find green surrounded by red in accumulator image, create overlay
 #define localwin 20
 		
 		for (int y = 0; y < YDIM- localwin*2; y+=localwin) {
@@ -328,7 +293,7 @@ int main(int argc, char** argv )
 		}
 
 		
-		
+		//Combine overlay and original
 		if(i>90){
 			subframe.forEach<Pixelc>([&](Pixelc& pixel, const int position[]) -> void {
 				Pixelc* over = overlay.ptr<Pixelc>(position[0],position[1]);
@@ -340,9 +305,8 @@ int main(int argc, char** argv )
 	
 		imshow("Accumulator",out);
 		
+		//Display overlaid image
 		imshow("Rip Current Detector",subframe);
-		
-		
 		video_out.write(subframe);
 
 		//out.convertTo(save,CV_8UC3,255);
@@ -350,9 +314,8 @@ int main(int argc, char** argv )
 		
 		
 		
-		//imshow("Classifier",waterclass);
+		imshow("Classifier",waterclass);
 		
-		waitKey(1);
 		
 		//flow.convertTo(save,CV_8UC3,255);
 		//videoflow.write(save);
@@ -360,8 +323,8 @@ int main(int argc, char** argv )
 		//waterclass.convertTo(save,CV_8UC3,255);
 		//videoclass.write(save);
 		
-		
-		
+		//Wait
+		waitKey(1);
 		stable[i%STABILIZE] = Mat::zeros(YDIM, XDIM, CV_32FC2);
 		
 		
@@ -377,20 +340,20 @@ int main(int argc, char** argv )
 		printf("\n------\n");
 		 */
 	
+	//Clean up
+	
 	flow_raw.release();
 	
 	//waitKey(0);
 	video.release();
-	//video_out.release();
-	//videoflow.release();
-	//videoclass.release();
-	//videoagg.release();
+	video_out.release();
+	
 	return 0;
 	
 }
 
-
-void wheel(){
+/*
+void wheel(){ //Display the color wheel
 	
 	namedWindow("Color Wheel", WINDOW_AUTOSIZE );
 	
@@ -442,4 +405,4 @@ void wheel(){
 
 	
 }
-
+*/
