@@ -29,9 +29,8 @@ void wheel(); //color wheel function
 
 int main(int argc, char** argv )
 {
-
 	
-	if(argc <2){printf("No video specified\n");exit(0); }
+	if(argc <2){printf("No video specified\n");wheel(); exit(0); }
 	ocl::setUseOpenCL(true);
 	
 	//Video I/O
@@ -142,6 +141,11 @@ int main(int argc, char** argv )
 		
 		Mat current = stable[i%STABILIZE]*(1.0/STABILIZE);
 		
+		split(current,splitarr);
+		cartToPolar(splitarr[0], splitarr[1], splitarr[1], splitarr[0],true);
+		merge(splitarr,2,current);	
+
+/*	
 		// x-y vector to direction-magnitude
 		current.forEach<Pixel2>([&](Pixel2& pixel, const int position[]) -> void {
 			
@@ -174,7 +178,7 @@ int main(int argc, char** argv )
 			pixel.y = sqrt(tx*tx + ty*ty);
 			
 		});
-		
+	*/	
 		
 		
 		
@@ -352,7 +356,7 @@ int main(int argc, char** argv )
 	
 }
 
-/*
+
 void wheel(){ //Display the color wheel
 	
 	namedWindow("Color Wheel", WINDOW_AUTOSIZE );
@@ -362,7 +366,7 @@ void wheel(){ //Display the color wheel
 	foo.forEach<Pixel3>([&](Pixel3& pixel, const int position[]) -> void {
 		
 		float tx = (position[1]-240)/240.0;
-		float ty = (240-position[0])/240.0;
+		float ty = (position[0]-240)/240.0;
 		
 		
 		int bin = (int) floor(atan(ty/tx)/M_PI  * 18  );//Begins to calculate the angle as an integer between 1 and 35.
@@ -405,4 +409,4 @@ void wheel(){ //Display the color wheel
 
 	
 }
-*/
+
