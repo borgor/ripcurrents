@@ -34,12 +34,21 @@ int main(int argc, char** argv )
 	ocl::setUseOpenCL(true);
 	
 	//Video I/O
-	
-	VideoCapture video = VideoCapture(argv[1]);
-	if (!video.isOpened())
-	{
-		std::cout << "!!! Input video could not be opened" << std::endl;
-		exit(-1);
+	VideoCapture video;
+	if(*argv[1] == (char)'-'){
+		video = VideoCapture(0);
+		if (!video.isOpened())
+		{
+			std::cout << "!!! Input video could not be opened" << std::endl;
+			exit(-1);
+		}
+	} else {
+		video = VideoCapture(argv[1]);
+		if (!video.isOpened())
+		{
+			std::cout << "!!! Input video could not be opened" << std::endl;
+			exit(-1);
+		}
 	}
 	
 	cv::VideoWriter video_out("video_out.mp4",
@@ -245,6 +254,7 @@ int main(int argc, char** argv )
 		Mat conv[] = {splitarr[0],splitarr[1],splitarr[1]};
 		merge(conv,3,flow);
 		cvtColor(flow,flow,CV_HSV2BGR);
+		flow.convertTo(flow,CV_8UC3,255);
 		imshow("Flow",flow);
 		
 		
