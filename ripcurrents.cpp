@@ -1,5 +1,6 @@
 #include <math.h>
 #include <stdio.h>
+#include <sys/time.h>
 
 #include <opencv2/opencv.hpp>
 #include <opencv2/core/ocl.hpp>  //Actually opencv3.2, in spite of the name
@@ -25,6 +26,18 @@ typedef cv::Point_<float> Pixel2;
 typedef cv::Point3_<float> Pixel3;
 
 void wheel(); //color wheel function
+int rip_main(cv::VideoCapture video, cv::VideoWriter video_out);
+
+
+double timediff(){
+	static struct timeval oldtime;
+	struct timeval newtime;
+	gettimeofday(&newtime,NULL);
+	double diff = (newtime.tv_sec - oldtime.tv_sec)*1000000 + newtime.tv_usec - oldtime.tv_usec;
+	gettimeofday(&oldtime,NULL);
+	return diff;
+}
+
 
 
 int main(int argc, char** argv )
@@ -51,17 +64,26 @@ int main(int argc, char** argv )
 		}
 	}
 	
-	cv::VideoWriter video_out("video_out.mp4",
-							  video.get(CV_CAP_PROP_FOURCC),
-							  video.get(CV_CAP_PROP_FPS)/3,
-							  cv::Size(XDIM, YDIM));
+	
+	VideoWriter video_out("video_out.avi",CV_FOURCC('M','J','P','G'), 10, cv::Size(XDIM,YDIM),true);
 	
 	if (!video_out.isOpened())
 	{
 		std::cout << "!!! Output video could not be opened" << std::endl;
 		exit(-1);
 	}
+	
+	rip_main(video, video_out);
+	
+}
 
+int rip_main(cv::VideoCapture video, cv::VideoWriter video_out){
+	double time_farneback = 0;
+	double time_polar = 0;
+	double time_threshold = 0;
+	double time_overlay = 0;
+	int frames_read = 0;
+	timediff();
 	
 	int c, r;
 	c = (int) video.get(CAP_PROP_FRAME_WIDTH);
@@ -94,10 +116,10 @@ int main(int argc, char** argv )
 	Mat splitarr[2];
 	
 	//Output windows
-	namedWindow("Rip Current Detector", WINDOW_AUTOSIZE );
-	namedWindow("Flow", WINDOW_AUTOSIZE );
-	namedWindow("Classifier", WINDOW_AUTOSIZE );
-	namedWindow("Accumulator", WINDOW_AUTOSIZE );
+	//namedWindow("Rip Current Detector", WINDOW_AUTOSIZE );
+	//namedWindow("Flow", WINDOW_AUTOSIZE );
+	//namedWindow("Classifier", WINDOW_AUTOSIZE );
+	//namedWindow("Accumulator", WINDOW_AUTOSIZE );
 	
 	
 	
@@ -117,6 +139,10 @@ int main(int argc, char** argv )
 	resize(frame,subframe,Size(),scalex,scaley,INTER_AREA);
 	cvtColor(subframe,f2,COLOR_BGR2GRAY);
 	f2.copyTo(u_f1);
+
+
+	
+
 	
 	for( i = 1; true; i++){
 
@@ -125,9 +151,13 @@ int main(int argc, char** argv )
 		video.read(frame);
 		video.read(frame); //skip frames for speed
 		video.read(frame);
+		frames_read+=3;
+		printf("Frames read: %d\n",frames_read);
 		
 		if(frame.empty()){break;}
-		
+		timediff();
+
+
 		//Resize, turn to gray.
 		resize(frame,subframe,Size(),scalex,scaley,INTER_AREA);
 		cvtColor(subframe,f2,COLOR_BGR2GRAY);
@@ -150,45 +180,14 @@ int main(int argc, char** argv )
 		
 		Mat current = stable[i%STABILIZE]*(1.0/STABILIZE);
 		
+		time_farneback += timediff();
+		
 		split(current,splitarr);
 		cartToPolar(splitarr[0], splitarr[1], splitarr[1], splitarr[0],true);
 		merge(splitarr,2,current);	
 
-/*	
-		// x-y vector to direction-magnitude
-		current.forEach<Pixel2>([&](Pixel2& pixel, const int position[]) -> void {
-			
-			float tx = pixel.x;
-			float ty = -pixel.y;
-			
-			
-			int bin = (int) floor(atan(ty/tx)/M_PI  *18  );//Begins to calculate the angle as an integer between 1 and 35.
-			
-			
-			
-			if(ty>0){
-				if(tx>0){
-					bin = bin;
-				}else{
-					bin = 18 + bin;
-				}
-			}else{
-				
-				if(tx<0){
-					bin = bin+18;
-				}else{
-					bin = 36 + bin;
-				}
-			}
-			pixel.x = (float)bin*10;
-			
-			
-			
-			pixel.y = sqrt(tx*tx + ty*ty);
-			
-		});
-	*/	
-		
+	
+		time_polar += timediff();
 		
 		
 		int resolution = 10;
@@ -247,16 +246,18 @@ int main(int argc, char** argv )
 		
 		
 
-		
-		 //Convert flow to HSV, then BGR, then display
+		/*
+		//Convert flow to HSV, then BGR, then display
 		split(current,splitarr);
 		flow = Mat(YDIM, XDIM, CV_32FC3);
 		Mat conv[] = {splitarr[0],splitarr[1],splitarr[1]};
 		merge(conv,3,flow);
 		cvtColor(flow,flow,CV_HSV2BGR);
 		flow.convertTo(flow,CV_8UC3,255);
-		imshow("Flow",flow);
+		//imshow("Flow",flow);
+		*/
 		
+		time_threshold += timediff();
 		
 		//accumulator accumulates waves
 		add(accumulator2,accumulator,accumulator);
@@ -317,42 +318,21 @@ int main(int argc, char** argv )
 			});
 		}
 	
-		imshow("Accumulator",out);
+		time_overlay += timediff();
 		
-		//Display overlaid image
-		imshow("Rip Current Detector",subframe);
 		video_out.write(subframe);
 
-		//out.convertTo(save,CV_8UC3,255);
-		//videoagg.write(save);
 		
-		
-		
-		imshow("Classifier",waterclass);
-		
-		
-		//flow.convertTo(save,CV_8UC3,255);
-		//videoflow.write(save);
-		
-		//waterclass.convertTo(save,CV_8UC3,255);
-		//videoclass.write(save);
-		
-		//Wait
-		waitKey(1);
 		stable[i%STABILIZE] = Mat::zeros(YDIM, XDIM, CV_32FC2);
 		
 		
 		
 	}
-	
-		
-		/*
-		for(int j = 0; j< THRESH_BINS; j++){
-			printf("%6d ,",hist[j]);
-			
-		}
-		printf("\n------\n");
-		 */
+	printf("Frames read: %d\n",frames_read);
+	printf("Time spent on farneback: %f\n",time_farneback);
+	printf("Time spent on polar coordinates: %f\n",time_polar);
+	printf("Time spent on thresholds: %f\n",time_threshold);
+	printf("Time spent on overlay: %f\n",time_overlay);
 	
 	//Clean up
 	
@@ -363,8 +343,8 @@ int main(int argc, char** argv )
 	video_out.release();
 	
 	return 0;
-	
 }
+
 
 
 void wheel(){ //Display the color wheel
