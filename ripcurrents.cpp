@@ -33,7 +33,7 @@ double timediff(){
 	static struct timeval oldtime;
 	struct timeval newtime;
 	gettimeofday(&newtime,NULL);
-	double diff = (newtime.tv_sec - oldtime.tv_sec)*1000000 + newtime.tv_usec - oldtime.tv_usec;
+	double diff = (newtime.tv_sec - oldtime.tv_sec) + (newtime.tv_usec - oldtime.tv_usec)/1000000.0;
 	gettimeofday(&oldtime,NULL);
 	return diff;
 }
@@ -82,8 +82,10 @@ int rip_main(cv::VideoCapture video, cv::VideoWriter video_out){
 	double time_polar = 0;
 	double time_threshold = 0;
 	double time_overlay = 0;
+	double time_edges = 0;
+	double time_codec = 0;
 	int frames_read = 0;
-	timediff();
+	
 	
 	int c, r;
 	c = (int) video.get(CAP_PROP_FRAME_WIDTH);
@@ -106,6 +108,12 @@ int rip_main(cv::VideoCapture video, cv::VideoWriter video_out){
 	UMat u_flow;
 	UMat u_f1,u_f2;
 	
+	/*
+	Ptr<BackgroundSubtractor> pMOG2;
+	pMOG2 = createBackgroundSubtractorMOG2();
+	Mat fgMaskMOG2;
+	Mat MOG_accumulator = Mat::zeros(YDIM,XDIM,CV_32FC1);
+	*/
 	
 	//Zero out accumulators
 	Mat accumulator = Mat::zeros(YDIM, XDIM, CV_32FC3);
@@ -115,6 +123,7 @@ int rip_main(cv::VideoCapture video, cv::VideoWriter video_out){
 	
 	Mat splitarr[2];
 	
+
 	//Output windows
 	//namedWindow("Rip Current Detector", WINDOW_AUTOSIZE );
 	//namedWindow("Flow", WINDOW_AUTOSIZE );
@@ -143,7 +152,7 @@ int rip_main(cv::VideoCapture video, cv::VideoWriter video_out){
 
 	
 
-	
+	timediff();
 	for( i = 1; true; i++){
 
 		
@@ -155,7 +164,7 @@ int rip_main(cv::VideoCapture video, cv::VideoWriter video_out){
 		printf("Frames read: %d\n",frames_read);
 		
 		if(frame.empty()){break;}
-		timediff();
+		time_codec += timediff();
 
 
 		//Resize, turn to gray.
@@ -172,6 +181,8 @@ int rip_main(cv::VideoCapture video, cv::VideoWriter video_out){
 		}
 		turn = !turn;
 		
+		
+		
 		flow_raw = u_flow.getMat(ACCESS_READ); //Tell GPU to give it back
 		
 		for(int j = 0; j<STABILIZE; j++){
@@ -181,6 +192,12 @@ int rip_main(cv::VideoCapture video, cv::VideoWriter video_out){
 		Mat current = stable[i%STABILIZE]*(1.0/STABILIZE);
 		
 		time_farneback += timediff();
+		
+		/*
+		pMOG2->apply(subframe, fgMaskMOG2,.7);
+		add(fgMaskMOG2,MOG_accumulator,MOG_accumulator,noArray(),MOG_accumulator.depth());
+		time_mog += timediff();
+		*/
 		
 		split(current,splitarr);
 		cartToPolar(splitarr[0], splitarr[1], splitarr[1], splitarr[0],true);
@@ -263,30 +280,64 @@ int rip_main(cv::VideoCapture video, cv::VideoWriter video_out){
 		add(accumulator2,accumulator,accumulator);
 		
 		
-		
+
 		Mat out = Mat::zeros(YDIM, XDIM, CV_32FC3);
+		Mat outmask = Mat::zeros(YDIM, XDIM, CV_8UC1);
 		
 		//Identify rip currents
 		out.forEach<Pixel3>([&](Pixel3& pixel, const int position[]) -> void {
 			Pixel3* accptr = accumulator.ptr<Pixel3>(position[0],position[1]);
-
+			uchar* maskptr = outmask.ptr<uchar>(position[0],position[1]);
+			
 			int val = accptr->x;
-			if(val > .05 * i){
+			if(val > .07 * i){
 				if(val < .2 * i){
-					pixel.z = float(val) / i;
+					pixel.z = 1;
 				}else{
-					pixel.x = float(val) / i;
+					pixel.x = 1;
 				}
 			}else{
-					pixel.y = float(val) / i;
+					pixel.y = .5;
+					*maskptr = 255;
 			}
 		});
+		
+		//erode here
+		Mat erode_window = getStructuringElement(MORPH_ELLIPSE, Size(5,5));
+		Mat erode1, erode2, dilate1;
+		dilate(outmask,erode1,erode_window);
+		erode_window = getStructuringElement(MORPH_ELLIPSE, Size(20,20));
+		erode(erode1,erode2,erode_window);
+		
+		
+		//Try erode, save, DILATE,
+		
+		imshow("accumulationbuffer",out);
+		imshow("erode1",erode1);
+		imshow("erode2",erode2);
+		outmask = erode1 - erode2;
+		imshow("diff",outmask);
+
+		
+		
+		
+	
+		/*
+		Mat edges, edges2;
+		out.convertTo(edges,CV_8UC1,255);
+		cvtColor(edges,edges,CV_BGR2GRAY);
+		Canny(edges,edges2,10,50,5,false);
+		imshow("edges",edges2);
+		
+		time_edges += timediff();
+		*/
+		
 		
 		Mat overlay = Mat::zeros(YDIM, XDIM, CV_8UC3);
 		
 		//Find green surrounded by red in accumulator image, create overlay
 #define localwin 20
-		
+		/*
 		for (int y = 0; y < YDIM- localwin*2; y+=localwin) {
 			for (int x = 0 ; x < XDIM - localwin*2; x+=localwin) {
 				int hisum = 0; int losum = 0;
@@ -306,23 +357,25 @@ int rip_main(cv::VideoCapture video, cv::VideoWriter video_out){
 				}
 			}
 		}
+		 */
 
 		
 		//Combine overlay and original
 		if(i>90){
 			subframe.forEach<Pixelc>([&](Pixelc& pixel, const int position[]) -> void {
-				Pixelc* over = overlay.ptr<Pixelc>(position[0],position[1]);
-				if(over->z == 4){
+				uchar over =  *outmask.ptr<uchar>(position[0],position[1]);
+				if(over){
 					pixel.z = 255;
 				}
 			});
 		}
 	
 		time_overlay += timediff();
-		
+		imshow("output",subframe);
+
 		video_out.write(subframe);
 
-		
+		waitKey(1);
 		stable[i%STABILIZE] = Mat::zeros(YDIM, XDIM, CV_32FC2);
 		
 		
@@ -333,6 +386,8 @@ int rip_main(cv::VideoCapture video, cv::VideoWriter video_out){
 	printf("Time spent on polar coordinates: %f\n",time_polar);
 	printf("Time spent on thresholds: %f\n",time_threshold);
 	printf("Time spent on overlay: %f\n",time_overlay);
+	//printf("Time spent on edges: %f\n",time_edges);
+	printf("Time spent on codec: %f\n",time_codec);
 	
 	//Clean up
 	
