@@ -21,7 +21,7 @@ float UPPER = 100.0; //UPPER can be determined programmatically
 
 using namespace cv;
 
-typedef cv::Point3_<char> Pixelc;
+typedef cv::Point3_<uchar> Pixelc;
 typedef cv::Point_<float> Pixel2;
 typedef cv::Point3_<float> Pixel3;
 
@@ -82,7 +82,7 @@ int rip_main(cv::VideoCapture video, cv::VideoWriter video_out){
 	double time_polar = 0;
 	double time_threshold = 0;
 	double time_overlay = 0;
-	double time_edges = 0;
+	double time_erosion = 0;
 	double time_codec = 0;
 	int frames_read = 0;
 	
@@ -284,7 +284,8 @@ int rip_main(cv::VideoCapture video, cv::VideoWriter video_out){
 		Mat out = Mat::zeros(YDIM, XDIM, CV_32FC3);
 		Mat outmask = Mat::zeros(YDIM, XDIM, CV_8UC1);
 		
-		//Identify rip currents
+		
+		//Visualize accumulation buffer. Thresholds need tweaking
 		out.forEach<Pixel3>([&](Pixel3& pixel, const int position[]) -> void {
 			Pixel3* accptr = accumulator.ptr<Pixel3>(position[0],position[1]);
 			uchar* maskptr = outmask.ptr<uchar>(position[0],position[1]);
@@ -302,23 +303,54 @@ int rip_main(cv::VideoCapture video, cv::VideoWriter video_out){
 			}
 		});
 		
-		//erode here
-		Mat erode_window = getStructuringElement(MORPH_ELLIPSE, Size(5,5));
-		Mat erode1, erode2, dilate1;
-		dilate(outmask,erode1,erode_window);
-		erode_window = getStructuringElement(MORPH_ELLIPSE, Size(20,20));
-		erode(erode1,erode2,erode_window);
+		//Use morphological operations to reduce noise, find edges
 		
 		
-		//Try erode, save, DILATE,
 		
-		imshow("accumulationbuffer",out);
-		imshow("erode1",erode1);
-		imshow("erode2",erode2);
-		outmask = erode1 - erode2;
-		imshow("diff",outmask);
 
+		//imshow("accumulationbuffer",out);
 		
+		Mat morph_window;
+		
+		imshow("original",outmask);
+		
+		
+		/*  //Option 1: mess with fill
+		Mat erode1, erode2;
+		
+		morph_window = getStructuringElement(MORPH_ELLIPSE, Size(7,7));
+		dilate(outmask, erode2, morph_window);
+		
+		morph_window = getStructuringElement(MORPH_ELLIPSE, Size(30,30));
+		morphologyEx( outmask, erode1, 2, morph_window ); //Morphology operation #2: open: erode, dilate
+		
+		imshow("eroded",erode1);
+		
+		morph_window = getStructuringElement(MORPH_ELLIPSE, Size(2,2));
+		morphologyEx( erode2, outmask, 4, morph_window ); //Morphology operation #4: gradient (dilation - erosion)
+		
+		
+		
+		imshow("edges",outmask);
+		
+		floodFill(outmask, Point(0,0), 255);
+		imshow("fill",outmask);
+		
+		outmask -= erode1;
+		
+		imshow("cleaned",outmask);
+		*/
+		
+		  //Option 2: just thick edges
+		
+		morph_window = getStructuringElement(MORPH_ELLIPSE, Size(5,5));
+		dilate(outmask, outmask, morph_window);
+		imshow("dilated",outmask);
+		morphologyEx( outmask, outmask, 4, morph_window ); //Morphology operation #4: gradient (dilation - erosion)
+		imshow("edges",outmask);
+		
+		
+		time_erosion += timediff();
 		
 		
 	
@@ -386,7 +418,7 @@ int rip_main(cv::VideoCapture video, cv::VideoWriter video_out){
 	printf("Time spent on polar coordinates: %f\n",time_polar);
 	printf("Time spent on thresholds: %f\n",time_threshold);
 	printf("Time spent on overlay: %f\n",time_overlay);
-	//printf("Time spent on edges: %f\n",time_edges);
+	printf("Time spent on erosion: %f\n",time_erosion);
 	printf("Time spent on codec: %f\n",time_codec);
 	
 	//Clean up
