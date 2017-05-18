@@ -149,7 +149,7 @@ int rip_main(cv::VideoCapture video, cv::VideoWriter video_out){
 	//Preload a frame
 	video.read(frame);
 	if(frame.empty()){exit(1);}
-	resize(frame,subframe,Size(YDIM,XDIM),NULL,NULL,INTER_AREA);
+	resize(frame,subframe,Size(XDIM,YDIM),0,0,INTER_AREA);
 	cvtColor(subframe,f2,COLOR_BGR2GRAY);
 	f2.copyTo(u_f1);
 
