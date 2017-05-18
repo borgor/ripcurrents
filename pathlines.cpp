@@ -33,7 +33,7 @@ int streamline (Pixel2 * pt, cv::Scalar color, cv::Mat flow, cv::Mat overlay, fl
 
 		Pixel2 newpt = *pt + delta*dt/iterations;
 	
-		cv::line(overlay,* pt, newpt, color,4, 8, 0);
+		cv::line(overlay,* pt, newpt, color, 1, 8, 0);
 	
 		*pt = newpt;
 	}

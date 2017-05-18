@@ -9,7 +9,7 @@
 #include "pathlines.h"
 
 
-#define STABILIZE 10	//Size of buffer for stabilizing video
+#define STABILIZE 5	//Size of buffer for stabilizing video
 #define THRESH_BINS 100 //Number of bins for finding thresholds
 
 #define XDIM 640   //Dimensions to resize to
@@ -91,13 +91,9 @@ int rip_main(cv::VideoCapture video, cv::VideoWriter video_out){
 	int frames_read = 0;
 	
 	
-	int c, r;
-	c = (int) video.get(CAP_PROP_FRAME_WIDTH);
-	r = (int) video.get(CAP_PROP_FRAME_HEIGHT);
-	
 
-	float scalex = XDIM/c;
-	float scaley = YDIM/r;
+	float scalex = XDIM/video.get(CAP_PROP_FRAME_WIDTH);
+	float scaley = YDIM/video.get(CAP_PROP_FRAME_HEIGHT);
 	
 	//A lot of matrices/frames
 	Mat save;
@@ -154,10 +150,10 @@ int rip_main(cv::VideoCapture video, cv::VideoWriter video_out){
 	f2.copyTo(u_f1);
 
 
-	
+# define STREAMLINES 500
 	Mat streamoverlay = Mat::zeros(YDIM, XDIM, CV_8UC1);
-	Pixel2 streampt[10];
-	for(int s = 0; s < 10; s++){
+	Pixel2 streampt[STREAMLINES];
+	for(int s = 0; s < STREAMLINES; s++){
 		streampt[s] = Pixel2(rand()%XDIM,rand()%YDIM);
 	}
 
@@ -178,7 +174,7 @@ int rip_main(cv::VideoCapture video, cv::VideoWriter video_out){
 
 
 		//Resize, turn to gray.
-		resize(frame,subframe,Size(),scalex,scaley,INTER_LINEAR);
+		resize(frame,subframe,Size(XDIM,YDIM),0,0,INTER_LINEAR);
 		cvtColor(subframe,f2,COLOR_BGR2GRAY);
 		if(turn){
 			f2.copyTo(u_f1);
@@ -206,8 +202,8 @@ int rip_main(cv::VideoCapture video, cv::VideoWriter video_out){
 		time_farneback += timediff();
 		
 
-		for(int s = 0; s < 10; s++){
-			streamline(streampt+s, Scalar(1), current, streamoverlay, .5, 5);
+		for(int s = 0; s < STREAMLINES; s++){
+			streamline(streampt+s, Scalar(1), current, streamoverlay, .2, 5);
 		}
 		
 		
@@ -431,9 +427,9 @@ int rip_main(cv::VideoCapture video, cv::VideoWriter video_out){
 			subframe.forEach<Pixelc>([&](Pixelc& pixel, const int position[]) -> void {
 				uchar over =  *outmask.ptr<uchar>(position[0],position[1]);
 				uchar stream =  *streamoverlay.ptr<uchar>(position[0],position[1]);
-				if(over){
-					pixel.z = 255;
-				}
+				//if(over){
+				//	pixel.z = 255;
+				//}
 				if(stream){
 					pixel.x = 255;
 					pixel.y = 0;
