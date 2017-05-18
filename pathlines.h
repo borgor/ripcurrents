@@ -3,6 +3,6 @@
 
 typedef cv::Point_<float> Pixel2;
 
-int streamline (Pixel2 * pt, cv::Scalar color, cv::Mat flow, cv::Mat overlay, float dt);
+int streamline (Pixel2 * pt, cv::Scalar color, cv::Mat flow, cv::Mat overlay, float dt, int iterations);
 
 #endif

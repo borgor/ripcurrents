@@ -12,8 +12,8 @@
 #define STABILIZE 10	//Size of buffer for stabilizing video
 #define THRESH_BINS 100 //Number of bins for finding thresholds
 
-#define XDIM 640.0   //Dimensions to resize to
-#define YDIM 480.0
+#define XDIM 640   //Dimensions to resize to
+#define YDIM 480
 
 //Some thresholds to mask out any remaining jitter, and strong waves. Don't know how to calculate them.
 float LOWER =  0.2;
@@ -149,15 +149,17 @@ int rip_main(cv::VideoCapture video, cv::VideoWriter video_out){
 	//Preload a frame
 	video.read(frame);
 	if(frame.empty()){exit(1);}
-	resize(frame,subframe,Size(),scalex,scaley,INTER_AREA);
+	resize(frame,subframe,Size(YDIM,XDIM),NULL,NULL,INTER_AREA);
 	cvtColor(subframe,f2,COLOR_BGR2GRAY);
 	f2.copyTo(u_f1);
 
 
 	
-	Mat streamoverlay = Mat::zeros(YDIM, XDIM, CV_32FC3);
-	Pixel2 streampt(XDIM/2, YDIM/2);
-	Pixel2 streampt2(XDIM/2, YDIM/2);
+	Mat streamoverlay = Mat::zeros(YDIM, XDIM, CV_8UC1);
+	Pixel2 streampt[10];
+	for(int s = 0; s < 10; s++){
+		streampt[s] = Pixel2(rand()%XDIM,rand()%YDIM);
+	}
 
 
 	timediff();
@@ -204,8 +206,11 @@ int rip_main(cv::VideoCapture video, cv::VideoWriter video_out){
 		time_farneback += timediff();
 		
 
-		streamline(&streampt, Scalar(1,0,0), current, streamoverlay, .1);
-		streamline(&streampt2, Scalar(0,0,1), current, streamoverlay, 1);
+		for(int s = 0; s < 10; s++){
+			streamline(streampt+s, Scalar(1), current, streamoverlay, .5, 5);
+		}
+		
+		
 		
 
 
@@ -232,7 +237,7 @@ int rip_main(cv::VideoCapture video, cv::VideoWriter video_out){
 		cvtColor(visibleflow,visibleflow,CV_HSV2BGR);
 		imshow("flow",visibleflow);
 	
-		imshow("pathline",streamoverlay+visibleflow);
+		//imshow("pathline",visibleflow+streamoverlay);
 		
 		time_polar += timediff();
 		
@@ -422,12 +427,19 @@ int rip_main(cv::VideoCapture video, cv::VideoWriter video_out){
 
 		
 		//Combine overlay and original
-		if(i>90){
+		if(true/*i>90*/){
 			subframe.forEach<Pixelc>([&](Pixelc& pixel, const int position[]) -> void {
 				uchar over =  *outmask.ptr<uchar>(position[0],position[1]);
+				uchar stream =  *streamoverlay.ptr<uchar>(position[0],position[1]);
 				if(over){
 					pixel.z = 255;
 				}
+				if(stream){
+					pixel.x = 255;
+					pixel.y = 0;
+					pixel.z = 255;
+				}
+				
 			});
 		}
 	
@@ -449,6 +461,7 @@ int rip_main(cv::VideoCapture video, cv::VideoWriter video_out){
 	printf("Time spent on overlay: %f\n",time_overlay);
 	printf("Time spent on erosion: %f\n",time_erosion);
 	printf("Time spent on codec: %f\n",time_codec);
+	printf("Time spent on pathlines: %f\n",time_stream);
 	
 	//Clean up
 	
