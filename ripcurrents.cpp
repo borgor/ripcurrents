@@ -6,6 +6,9 @@
 #include <opencv2/core/ocl.hpp>  //Actually opencv3.2, in spite of the name
 
 
+#include "pathlines.h"
+
+
 #define STABILIZE 10	//Size of buffer for stabilizing video
 #define THRESH_BINS 100 //Number of bins for finding thresholds
 
@@ -84,6 +87,7 @@ int rip_main(cv::VideoCapture video, cv::VideoWriter video_out){
 	double time_overlay = 0;
 	double time_erosion = 0;
 	double time_codec = 0;
+	double time_stream = 0;
 	int frames_read = 0;
 	
 	
@@ -151,6 +155,10 @@ int rip_main(cv::VideoCapture video, cv::VideoWriter video_out){
 
 
 	
+	Mat streamoverlay = Mat::zeros(YDIM, XDIM, CV_32FC3);
+	Pixel2 streampt(XDIM/2, YDIM/2);
+	Pixel2 streampt2(XDIM/2, YDIM/2);
+
 
 	timediff();
 	for( i = 1; true; i++){
@@ -195,6 +203,14 @@ int rip_main(cv::VideoCapture video, cv::VideoWriter video_out){
 		
 		time_farneback += timediff();
 		
+
+		streamline(&streampt, Scalar(1,0,0), current, streamoverlay, .1);
+		streamline(&streampt2, Scalar(0,0,1), current, streamoverlay, 1);
+		
+
+
+		time_stream+= timediff();
+
 		/*
 		pMOG2->apply(subframe, fgMaskMOG2);
 		imshow("fg",fgMaskMOG2);
@@ -216,6 +232,8 @@ int rip_main(cv::VideoCapture video, cv::VideoWriter video_out){
 		cvtColor(visibleflow,visibleflow,CV_HSV2BGR);
 		imshow("flow",visibleflow);
 	
+		imshow("pathline",streamoverlay+visibleflow);
+		
 		time_polar += timediff();
 		
 		
@@ -320,11 +338,11 @@ int rip_main(cv::VideoCapture video, cv::VideoWriter video_out){
 		
 		
 
-		imshow("accumulationbuffer",out);
+		//imshow("accumulationbuffer",out);
 		
 		Mat morph_window;
 		
-		imshow("original",outmask);
+		//imshow("original",outmask);
 		
 		
 		/*  //Option 1: mess with fill

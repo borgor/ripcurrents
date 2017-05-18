@@ -1,0 +1,40 @@
+#include <opencv2/opencv.hpp>
+#include <opencv2/core/ocl.hpp>  //Actually opencv3.2, in spite of the name
+
+#include "pathlines.h"
+
+
+typedef cv::Point_<float> Pixel2;
+
+int streamline (Pixel2 * pt, cv::Scalar color, cv::Mat flow, cv::Mat overlay, float dt){
+
+	Pixel2* flowpt;
+	
+
+	float x = pt->x;
+	float y = pt->y;
+
+	int xind = (int) floor(x);
+	int yind = (int) floor(y);
+	float xrem = x - xind;
+	float yrem = y - yind;
+
+	if(xind < 0 || yind < 0 || xind + 1 > flow.cols || yind  + 1 > flow.rows)  //Verify array bounds
+	{
+		return -1;
+	}
+
+	//Bilinear interpolation
+	Pixel2 delta =	(*flow.ptr<Pixel2>(xind,yind))		* (1-xrem)*(1-yrem) +
+					(*flow.ptr<Pixel2>(xind+1,yind))	* (xrem)*(1-yrem) +
+					(*flow.ptr<Pixel2>(xind,yind+1))	* (1-xrem)*(yrem) +
+					(*flow.ptr<Pixel2>(xind+1,yind+1))	* (xrem)*(yrem) ;
+
+	Pixel2 newpt = *pt + delta*dt;
+	
+	cv::line(overlay,* pt, newpt, color,4, 8, 0);
+	
+	*pt = newpt;
+
+	return 0;
+}
