@@ -168,15 +168,15 @@ int rip_main(cv::VideoCapture video, cv::VideoWriter video_out){
 
 
 		//Resize, turn to gray.
-		resize(frame,subframe,Size(),scalex,scaley,INTER_AREA);
+		resize(frame,subframe,Size(),scalex,scaley,INTER_LINEAR);
 		cvtColor(subframe,f2,COLOR_BGR2GRAY);
 		if(turn){
 			f2.copyTo(u_f1);
-			calcOpticalFlowFarneback(u_f2,u_f1, u_flow, 0.5, 3, 5, 3, 15, 1.2, 0); //Give to GPU
+			calcOpticalFlowFarneback(u_f2,u_f1, u_flow, 0.5, 2, 3, 2, 15, 1.2, 0); //Give to GPU
 			//printf("tick\n");
 		}else{
 			f2.copyTo(u_f2);
-			calcOpticalFlowFarneback(u_f1,u_f2, u_flow, 0.5, 3, 5, 3, 15, 1.2, 0);
+			calcOpticalFlowFarneback(u_f1,u_f2, u_flow, 0.5, 2, 3, 2, 15, 1.2, 0);
 			//printf("tock\n");
 		}
 		turn = !turn;
@@ -189,20 +189,32 @@ int rip_main(cv::VideoCapture video, cv::VideoWriter video_out){
 			add(flow_raw,stable[j],stable[j]);
 		}
 		
+		
+		
 		Mat current = stable[i%STABILIZE]*(1.0/STABILIZE);
 		
 		time_farneback += timediff();
 		
 		/*
-		pMOG2->apply(subframe, fgMaskMOG2,.7);
-		add(fgMaskMOG2,MOG_accumulator,MOG_accumulator,noArray(),MOG_accumulator.depth());
-		time_mog += timediff();
+		pMOG2->apply(subframe, fgMaskMOG2);
+		imshow("fg",fgMaskMOG2);
+		Mat foo;
+		pMOG2->getBackgroundImage(foo);
+		imshow("background",foo);
+		//add(fgMaskMOG2,MOG_accumulator,MOG_accumulator,noArray(),MOG_accumulator.depth());
+		//time_mog += timediff();
 		*/
 		
 		split(current,splitarr);
 		cartToPolar(splitarr[0], splitarr[1], splitarr[1], splitarr[0],true);
 		merge(splitarr,2,current);	
 
+		Mat visibleflow;
+		Mat combine[3] = {splitarr[0],splitarr[1],splitarr[1]};
+		
+		merge(combine,3,visibleflow);
+		cvtColor(visibleflow,visibleflow,CV_HSV2BGR);
+		imshow("flow",visibleflow);
 	
 		time_polar += timediff();
 		
@@ -291,7 +303,7 @@ int rip_main(cv::VideoCapture video, cv::VideoWriter video_out){
 			uchar* maskptr = outmask.ptr<uchar>(position[0],position[1]);
 			
 			int val = accptr->x;
-			if(val > .07 * i){
+			if(val > .1 * i){
 				if(val < .2 * i){
 					pixel.z = 1;
 				}else{
@@ -308,7 +320,7 @@ int rip_main(cv::VideoCapture video, cv::VideoWriter video_out){
 		
 		
 
-		//imshow("accumulationbuffer",out);
+		imshow("accumulationbuffer",out);
 		
 		Mat morph_window;
 		
@@ -341,11 +353,10 @@ int rip_main(cv::VideoCapture video, cv::VideoWriter video_out){
 		imshow("cleaned",outmask);
 		*/
 		
-		  //Option 2: just thick edges
+		//Option 2: just edges
 		
 		morph_window = getStructuringElement(MORPH_ELLIPSE, Size(5,5));
 		dilate(outmask, outmask, morph_window);
-		imshow("dilated",outmask);
 		morphologyEx( outmask, outmask, 4, morph_window ); //Morphology operation #4: gradient (dilation - erosion)
 		imshow("edges",outmask);
 		
@@ -410,7 +421,7 @@ int rip_main(cv::VideoCapture video, cv::VideoWriter video_out){
 		waitKey(1);
 		stable[i%STABILIZE] = Mat::zeros(YDIM, XDIM, CV_32FC2);
 		
-		
+		timediff();
 		
 	}
 	printf("Frames read: %d\n",frames_read);
