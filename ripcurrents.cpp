@@ -191,7 +191,7 @@ int rip_main(cv::VideoCapture video, cv::VideoWriter video_out){
 		cvtColor(subframe,f2,COLOR_BGR2GRAY);
 		if(turn){
 			f2.copyTo(u_f1);
-			calcOpticalFlowFarneback(u_f2,u_f1, u_flow, 0.5, 2, 3, 2, 15, 1.2, 0); //Give to GPU
+			calcOpticalFlowFarneback(u_f2,u_f1, u_flow, 0.5, 2, 3, 2, 15, 1.2, 0); //Give to GPU, possibly
 			//printf("tick\n");
 		}else{
 			f2.copyTo(u_f2);
@@ -243,8 +243,9 @@ int rip_main(cv::VideoCapture video, cv::VideoWriter video_out){
 		//convert the x,y current flow field into angle,magnitude form.
 		//Specifically, angle,magnitude,magnitude, as it is later displayed with HSV
 		split(current,splitarr);
-		cartToPolar(splitarr[0], splitarr[1], splitarr[1], splitarr[0],true);
-		Mat combine[3] = {splitarr[0],splitarr[1],splitarr[1]};
+		Mat combine[3];
+		cartToPolar(splitarr[0], splitarr[1], combine[2], combine[0],true);
+		combine[1] = combine[2];
 		merge(combine,3,current);
 		
 	
@@ -268,7 +269,6 @@ int rip_main(cv::VideoCapture video, cv::VideoWriter video_out){
 					hist[bin]++; histsum++;
 					hist2d[angle][bin]++; histsum2d[angle]++;
 				}
-				
 			}
 		}
 		
@@ -292,8 +292,7 @@ int rip_main(cv::VideoCapture video, cv::VideoWriter video_out){
 			}
 			UPPER2d[angle] = bin/float(resolution);
 			if(UPPER2d[angle] < 0.01) {UPPER2d[angle] = 0.01;}//avoid division by 0
-			printf("Angle %d; frequency: %d; upper: %f\n",angle,histsum2d[angle], UPPER2d[angle]);
-
+			//printf("Angle %d; frequency: %d; upper: %f\n",angle,histsum2d[angle], UPPER2d[angle]);
 		}
 		
 
