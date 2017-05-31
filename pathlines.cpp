@@ -20,7 +20,7 @@ int streamline (Pixel2 * pt, cv::Scalar color, cv::Mat flow, cv::Mat overlay, fl
 		float xrem = x - xind;
 		float yrem = y - yind;
 
-		if(xind < 0 || yind < 0 || xind + 1 > flow.cols || yind  + 1 > flow.rows)  //Verify array bounds
+		if(xind < 1 || yind < 1 || xind + 2 > flow.cols || yind  + 2 > flow.rows)  //Verify array bounds
 		{
 			return -1;
 		}
@@ -31,6 +31,10 @@ int streamline (Pixel2 * pt, cv::Scalar color, cv::Mat flow, cv::Mat overlay, fl
 						(*flow.ptr<Pixel2>(yind+1,xind))	* (1-xrem)*(yrem) +
 						(*flow.ptr<Pixel2>(yind+1,xind+1))	* (xrem)*(yrem) ;
 
+	//	if(delta.y < 0){
+	//		delta *= 5;
+	//	}
+		
 		Pixel2 newpt = *pt + delta*dt/iterations;
 	
 		cv::line(overlay,* pt, newpt, color, 1, 8, 0);

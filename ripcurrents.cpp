@@ -10,17 +10,13 @@
 
 
 #define STABILIZE 5	//Size of buffer for stabilizing video
-#define THRESH_BINS 100 //Number of bins for finding thresholds
+
 
 #define XDIM 640   //Dimensions to resize to
 #define YDIM 480
 
-//Some thresholds to mask out any remaining jitter, and strong waves. Don't know how to calculate them.
-float LOWER =  0.2;
-float MID  = .5;
-float UPPER = 100.0; //UPPER can be determined programmatically
 
-#define rescale(x) x = (x - LOWER)/(UPPER - LOWER)
+
 
 using namespace cv;
 
@@ -94,6 +90,7 @@ int rip_main(cv::VideoCapture video, cv::VideoWriter video_out){
 
 	float scalex = XDIM/video.get(CAP_PROP_FRAME_WIDTH);
 	float scaley = YDIM/video.get(CAP_PROP_FRAME_HEIGHT);
+	int totalframes = (int) video.get(CAP_PROP_FRAME_COUNT);
 	
 	//A lot of matrices/frames
 	Mat save;
@@ -131,13 +128,26 @@ int rip_main(cv::VideoCapture video, cv::VideoWriter video_out){
 	//namedWindow("Accumulator", WINDOW_AUTOSIZE );
 	
 	
+	#define HIST_BINS 100 //Number of bins for finding thresholds
+	#define HIST_DIRECTIONS 36 //Number of 2d histogram directions
+	//Some thresholds to mask out any remaining jitter, and strong waves. Don't know how to calculate them.
+	float LOWER =  0.2;
+	float MID  = .5;
+
+
 	
-	int hist[THRESH_BINS] = {0}; //histogram
+	int hist[HIST_BINS] = {0}; //histogram
 	int histsum = 0;
+	float UPPER = 100.0; //UPPER can be determined programmatically
+	
+	int hist2d[HIST_DIRECTIONS][HIST_BINS] = {0};
+	int histsum2d[HIST_DIRECTIONS] = {0};
+	float UPPER2d[HIST_DIRECTIONS] = {0};
 	
 	
 	
-	int i; //Generic iterator for main loop.
+	
+	int framecount; //Generic iterator for main loop.
 	
 	
 	int turn = 0;  //Alternator
@@ -150,8 +160,11 @@ int rip_main(cv::VideoCapture video, cv::VideoWriter video_out){
 	f2.copyTo(u_f1);
 
 
-# define STREAMLINES 500
+# define STREAMLINES 250
+	
+	sranddev();
 	Mat streamoverlay = Mat::zeros(YDIM, XDIM, CV_8UC1);
+	Mat streamoverlay_color = Mat::zeros(YDIM, XDIM, CV_8UC3);
 	Pixel2 streampt[STREAMLINES];
 	for(int s = 0; s < STREAMLINES; s++){
 		streampt[s] = Pixel2(rand()%XDIM,rand()%YDIM);
@@ -159,14 +172,14 @@ int rip_main(cv::VideoCapture video, cv::VideoWriter video_out){
 
 
 	timediff();
-	for( i = 1; true; i++){
+	for( framecount = 1; true; framecount++){
 
 		
 		
+		//video.read(frame);
+		//video.read(frame); //skip frames for speed
 		video.read(frame);
-		video.read(frame); //skip frames for speed
-		video.read(frame);
-		frames_read+=3;
+		frames_read+=1;
 		printf("Frames read: %d\n",frames_read);
 		
 		if(frame.empty()){break;}
@@ -197,17 +210,22 @@ int rip_main(cv::VideoCapture video, cv::VideoWriter video_out){
 		
 		
 		
-		Mat current = stable[i%STABILIZE]*(1.0/STABILIZE);
+		Mat current = stable[framecount%STABILIZE]*(1.0/STABILIZE);
 		
 		time_farneback += timediff();
 		
 
 		for(int s = 0; s < STREAMLINES; s++){
-			streamline(streampt+s, Scalar(1), current, streamoverlay, .2, 5);
+			streamline(streampt+s, Scalar(framecount*(255.0/totalframes)), current, streamoverlay, 2, 1);
 		}
 		
+		applyColorMap(streamoverlay, streamoverlay_color, COLORMAP_RAINBOW);
+		Mat streamout;
+		subframe.copyTo(streamout);
+		add(streamoverlay_color, streamout, streamout, streamoverlay, -1);
+		imshow("stream",streamout);
 		
-		
+
 
 
 		time_stream+= timediff();
@@ -222,16 +240,13 @@ int rip_main(cv::VideoCapture video, cv::VideoWriter video_out){
 		//time_mog += timediff();
 		*/
 		
+		//convert the x,y current flow field into angle,magnitude form.
+		//Specifically, angle,magnitude,magnitude, as it is later displayed with HSV
 		split(current,splitarr);
 		cartToPolar(splitarr[0], splitarr[1], splitarr[1], splitarr[0],true);
-		merge(splitarr,2,current);	
-
-		Mat visibleflow;
 		Mat combine[3] = {splitarr[0],splitarr[1],splitarr[1]};
+		merge(combine,3,current);
 		
-		merge(combine,3,visibleflow);
-		cvtColor(visibleflow,visibleflow,CV_HSV2BGR);
-		imshow("flow",visibleflow);
 	
 		//imshow("pathline",visibleflow+streamoverlay);
 		
@@ -240,25 +255,47 @@ int rip_main(cv::VideoCapture video, cv::VideoWriter video_out){
 		
 		int resolution = 10;
 		//Fill histogram
+		
+		//update to 2D histogram
+		
 		for (int y = 0; y < YDIM; y++) {
-			Pixel2* ptr = current.ptr<Pixel2>(y, 0);
-			const Pixel2* ptr_end = ptr + (int)XDIM;
+			Pixel3* ptr = current.ptr<Pixel3>(y, 0);
+			const Pixel3* ptr_end = ptr + (int)XDIM;
 			for (int x = 0 ; ptr != ptr_end; ++ptr, x++) {
 				int bin = (ptr->y) * resolution;
-				if(bin < THRESH_BINS &&  bin >= 0) {hist[bin]++; histsum++;}
+				int angle = (ptr->x * HIST_DIRECTIONS)/ 360; //order matters, truncation
+				if(bin < HIST_BINS &&  bin >= 0){
+					hist[bin]++; histsum++;
+					hist2d[angle][bin]++; histsum2d[angle]++;
+				}
 				
 			}
 		}
 		
-		//Use histogram to create threshold
+		//Use histogram to create overall threshold
 		int threshsum = 0;
-		int bin = THRESH_BINS-1;
+		int bin = HIST_BINS-1;
 		while(threshsum < (histsum*.03)){
 			threshsum += hist[bin];
 			bin--;
 		}
 		UPPER = bin/float(resolution);
-		//printf("%f\n",UPPER);
+		
+		
+		//As above, but per-direction
+		for(int angle = 0; angle < HIST_DIRECTIONS; angle++){
+			int threshsum = 0;
+			int bin = HIST_BINS-1;
+			while(threshsum < (histsum2d[angle]*.03)){
+				threshsum += hist2d[angle][bin];
+				bin--;
+			}
+			UPPER2d[angle] = bin/float(resolution);
+			if(UPPER2d[angle] < 0.01) {UPPER2d[angle] = 0.01;}//avoid division by 0
+			printf("Angle %d; frequency: %d; upper: %f\n",angle,histsum2d[angle], UPPER2d[angle]);
+
+		}
+		
 
 		
 
@@ -267,13 +304,14 @@ int rip_main(cv::VideoCapture video, cv::VideoWriter video_out){
 		
 
 		//Classify
-		current.forEach<Pixel2>([&](Pixel2& pixel, const int position[]) -> void {
+		current.forEach<Pixel3>([&](Pixel3& pixel, const int position[]) -> void {
 			
 			Pixel3* classptr = waterclass.ptr<Pixel3>(position[0],position[1]);
-			
 			Pixel3 * pt = accumulator2.ptr<Pixel3>(position[0],position[1]);
-			float dir = pixel.x;
-			float val = pixel.y ;
+			int angle = (pixel.x * HIST_DIRECTIONS)/ 360; //order matters, truncation
+			float val = pixel.z ;
+			
+			//Load classifier and overlay
 			if(val > UPPER){classptr->x = .5; pt->x++;}else{
 				if(val > MID){classptr->z = 1;}else{
 					if(val > LOWER){classptr->z = .5;}else{
@@ -282,34 +320,31 @@ int rip_main(cv::VideoCapture video, cv::VideoWriter video_out){
 				}
 			}
 			
-			if(val < UPPER){
-				if(val> LOWER){
-					rescale(val);
-					pixel.y = val;
-				}else{
-					pixel.y = 0;
-				}
+			//Rescale for display
+			//pixel.z = 1;
+			pixel.z = val/UPPER2d[angle];
+			if(pixel.z > 1){
+				pixel.y = 1;
+			} else {
+				pixel.y = .7;
 			}
+			
+			
 		});
+
 		
+		cvtColor(current,current,CV_HSV2BGR);
+		imshow("flow",current);
 		
 
-		/*
-		//Convert flow to HSV, then BGR, then display
-		split(current,splitarr);
-		flow = Mat(YDIM, XDIM, CV_32FC3);
-		Mat conv[] = {splitarr[0],splitarr[1],splitarr[1]};
-		merge(conv,3,flow);
-		cvtColor(flow,flow,CV_HSV2BGR);
-		flow.convertTo(flow,CV_8UC3,255);
-		//imshow("Flow",flow);
-		*/
+		
 		
 		time_threshold += timediff();
 		
 		//accumulator accumulates waves
-		add(accumulator2,accumulator,accumulator);
-		
+		if(framecount > 30){
+			add(accumulator2,accumulator,accumulator);
+		}
 		
 
 		Mat out = Mat::zeros(YDIM, XDIM, CV_32FC3);
@@ -322,8 +357,8 @@ int rip_main(cv::VideoCapture video, cv::VideoWriter video_out){
 			uchar* maskptr = outmask.ptr<uchar>(position[0],position[1]);
 			
 			int val = accptr->x;
-			if(val > .1 * i){
-				if(val < .2 * i){
+			if(val > .1 * framecount){
+				if(val < .2 * framecount){
 					pixel.z = 1;
 				}else{
 					pixel.x = 1;
@@ -423,29 +458,29 @@ int rip_main(cv::VideoCapture video, cv::VideoWriter video_out){
 
 		
 		//Combine overlay and original
-		if(true/*i>90*/){
+		if(true/*framecount>90*/){
 			subframe.forEach<Pixelc>([&](Pixelc& pixel, const int position[]) -> void {
 				uchar over =  *outmask.ptr<uchar>(position[0],position[1]);
 				uchar stream =  *streamoverlay.ptr<uchar>(position[0],position[1]);
-				//if(over){
-				//	pixel.z = 255;
-				//}
-				if(stream){
-					pixel.x = 255;
-					pixel.y = 0;
+				if(over){
 					pixel.z = 255;
 				}
+				//if(stream){
+				//	pixel.x = 255;
+				//	pixel.y = 0;
+				//	pixel.z = 255;
+				//}
 				
 			});
 		}
 	
 		time_overlay += timediff();
 		imshow("output",subframe);
-
-		video_out.write(subframe);
+		
+		video_out.write(streamout);
 
 		waitKey(1);
-		stable[i%STABILIZE] = Mat::zeros(YDIM, XDIM, CV_32FC2);
+		stable[framecount%STABILIZE] = Mat::zeros(YDIM, XDIM, CV_32FC2);
 		
 		timediff();
 		
@@ -507,10 +542,11 @@ void wheel(){ //Display the color wheel
 		
 		
 		float d = sqrt(tx*tx + ty *ty);
-	
+		
 		
 		pixel.y = d > 1 ? 0 : d;
 		pixel.z = d > 1 ? 0 : 1;
+		//pixel.z = pixel.x;
 		
 	});
 	
