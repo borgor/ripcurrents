@@ -1,0 +1,6 @@
+cmake_minimum_required(VERSION 2.8)
+project( RipCurrents )
+find_package( OpenCV  REQUIRED)
+add_executable( ripcurrents ripcurrents.cpp pathlines.cpp )
+target_compile_features(ripcurrents PUBLIC cxx_lambdas)
+target_link_libraries( ripcurrents ${OpenCV_LIBS} )
