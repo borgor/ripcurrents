@@ -3,9 +3,12 @@ A continuation of work by Shweta Philip and Alex Pang of UCSC:
 	https://github.com/AryaPhilip/RipCurrentDetectionAndVisualization
 
 
+RipCurrents_main is the main version
+RipCurrents_android is the android fork (tends to be very slow and not fully featured).
+)
+
 TODO: describe build/use
 
-TODO: make the android fork portable
 
 TODO: update comments, choose sample videos.
 
