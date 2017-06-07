@@ -6,17 +6,18 @@
 #include <opencv2/core/ocl.hpp>  //Actually opencv3.2, in spite of the name
 
 
-#include "pathlines.h"
 
 
-#define STABILIZE 5	//Size of buffer for stabilizing video
+
+#define STABILIZE 10	//Size of buffer for stabilizing video
 
 
 #define XDIM 640   //Dimensions to resize to
 #define YDIM 480
 
-
-
+#define HIST_BINS 50 //Number of bins for finding thresholds
+#define HIST_DIRECTIONS 36 //Number of 2d histogram directions
+#define HIST_RESOLUTION 20
 
 using namespace cv;
 
@@ -25,6 +26,14 @@ typedef cv::Point_<float> Pixel2;
 typedef cv::Point3_<float> Pixel3;
 
 void wheel(); //color wheel function
+
+void display_histogram(int hist2d[HIST_DIRECTIONS][HIST_BINS], int histsum2d[HIST_DIRECTIONS],
+					float UPPER2d[HIST_DIRECTIONS], float UPPER, float prop_above_upper[HIST_DIRECTIONS]); //display the 2d histogram, using code from the wheel
+//give it a pointer to the array, make sure indexing works
+
+void streamline(Pixel2 * pt, cv::Scalar color, cv::Mat flow, cv::Mat overlay, float dt, int iterations, float UPPER, float prop_above_upper[HIST_DIRECTIONS]);
+
+
 int rip_main(cv::VideoCapture video, cv::VideoWriter video_out);
 
 
@@ -35,6 +44,23 @@ double timediff(){
 	double diff = (newtime.tv_sec - oldtime.tv_sec) + (newtime.tv_usec - oldtime.tv_usec)/1000000.0;
 	gettimeofday(&oldtime,NULL);
 	return diff;
+}
+
+
+struct streamlinecontainer{
+	Pixel2 * array;
+	int * count;
+};
+
+void CallBackFunc(int event, int x, int y, int flags, void * dataptr)
+{
+	struct streamlinecontainer * data = (struct streamlinecontainer *) dataptr;
+	if  ( event == EVENT_LBUTTONDOWN )
+	{
+		std::cout << "Left button of the mouse is clicked - position (" << x << ", " << y << ")" << std::endl;
+		(data->array)[(*(data->count))++]=Pixel2(x,y);
+
+	}
 }
 
 
@@ -72,9 +98,20 @@ int main(int argc, char** argv )
 		exit(-1);
 	}
 	
+	
+	
+	
+
+	
+	
 	rip_main(video, video_out);
 	
 }
+
+
+
+
+
 
 int rip_main(cv::VideoCapture video, cv::VideoWriter video_out){
 	double time_farneback = 0;
@@ -88,8 +125,8 @@ int rip_main(cv::VideoCapture video, cv::VideoWriter video_out){
 	
 	
 
-	float scalex = XDIM/video.get(CAP_PROP_FRAME_WIDTH);
-	float scaley = YDIM/video.get(CAP_PROP_FRAME_HEIGHT);
+//	float scalex = XDIM/video.get(CAP_PROP_FRAME_WIDTH);
+//	float scaley = YDIM/video.get(CAP_PROP_FRAME_HEIGHT);
 	int totalframes = (int) video.get(CAP_PROP_FRAME_COUNT);
 	
 	//A lot of matrices/frames
@@ -128,8 +165,7 @@ int rip_main(cv::VideoCapture video, cv::VideoWriter video_out){
 	//namedWindow("Accumulator", WINDOW_AUTOSIZE );
 	
 	
-	#define HIST_BINS 100 //Number of bins for finding thresholds
-	#define HIST_DIRECTIONS 36 //Number of 2d histogram directions
+
 	//Some thresholds to mask out any remaining jitter, and strong waves. Don't know how to calculate them.
 	float LOWER =  0.2;
 	float MID  = .5;
@@ -143,6 +179,29 @@ int rip_main(cv::VideoCapture video, cv::VideoWriter video_out){
 	int hist2d[HIST_DIRECTIONS][HIST_BINS] = {0};
 	int histsum2d[HIST_DIRECTIONS] = {0};
 	float UPPER2d[HIST_DIRECTIONS] = {0};
+	float prop_above_upper[HIST_DIRECTIONS] = {0};
+	
+	
+	
+	
+	sranddev();
+	Mat streamoverlay = Mat::zeros(YDIM, XDIM, CV_8UC1);
+	Mat streamoverlay_color = Mat::zeros(YDIM, XDIM, CV_8UC3);
+
+	# define MAX_STREAMLINES 250
+	Pixel2 streampt[MAX_STREAMLINES];
+	int streamlines = MAX_STREAMLINES/2;
+
+	for(int s = 0; s < streamlines; s++){
+		streampt[s] = Pixel2(rand()%XDIM,rand()%YDIM);
+	}
+	namedWindow("streamlines", WINDOW_AUTOSIZE );
+	
+	struct streamlinecontainer data;
+	data.array = streampt;
+	data.count = & streamlines;
+	
+	setMouseCallback("streamlines", CallBackFunc, (void*)&data);
 	
 	
 	
@@ -160,15 +219,6 @@ int rip_main(cv::VideoCapture video, cv::VideoWriter video_out){
 	f2.copyTo(u_f1);
 
 
-# define STREAMLINES 250
-	
-	sranddev();
-	Mat streamoverlay = Mat::zeros(YDIM, XDIM, CV_8UC1);
-	Mat streamoverlay_color = Mat::zeros(YDIM, XDIM, CV_8UC3);
-	Pixel2 streampt[STREAMLINES];
-	for(int s = 0; s < STREAMLINES; s++){
-		streampt[s] = Pixel2(rand()%XDIM,rand()%YDIM);
-	}
 
 
 	timediff();
@@ -176,11 +226,11 @@ int rip_main(cv::VideoCapture video, cv::VideoWriter video_out){
 
 		
 		
-		//video.read(frame);
-		//video.read(frame); //skip frames for speed
 		video.read(frame);
-		frames_read+=1;
-		printf("Frames read: %d\n",frames_read);
+		//video.read(frame); //skip frames for speed
+		//video.read(frame);
+		
+		printf("Frames read: %d\n",framecount);
 		
 		if(frame.empty()){break;}
 		time_codec += timediff();
@@ -215,15 +265,15 @@ int rip_main(cv::VideoCapture video, cv::VideoWriter video_out){
 		time_farneback += timediff();
 		
 
-		for(int s = 0; s < STREAMLINES; s++){
-			streamline(streampt+s, Scalar(framecount*(255.0/totalframes)), current, streamoverlay, 2, 1);
+		for(int s = 0; s < streamlines; s++){
+			streamline(streampt+s, Scalar(framecount*(255.0/totalframes)), current, streamoverlay, 2, 1,UPPER,prop_above_upper);
 		}
 		
 		applyColorMap(streamoverlay, streamoverlay_color, COLORMAP_RAINBOW);
 		Mat streamout;
 		subframe.copyTo(streamout);
 		add(streamoverlay_color, streamout, streamout, streamoverlay, -1);
-		imshow("stream",streamout);
+		imshow("streamlines",streamout);
 		
 
 
@@ -254,7 +304,7 @@ int rip_main(cv::VideoCapture video, cv::VideoWriter video_out){
 		time_polar += timediff();
 		
 		
-		int resolution = 10;
+		
 		//Fill histogram
 		
 		//update to 2D histogram
@@ -263,7 +313,7 @@ int rip_main(cv::VideoCapture video, cv::VideoWriter video_out){
 			Pixel3* ptr = current.ptr<Pixel3>(y, 0);
 			const Pixel3* ptr_end = ptr + (int)XDIM;
 			for (int x = 0 ; ptr != ptr_end; ++ptr, x++) {
-				int bin = (ptr->y) * resolution;
+				int bin = (ptr->y) * HIST_RESOLUTION;
 				int angle = (ptr->x * HIST_DIRECTIONS)/ 360; //order matters, truncation
 				if(bin < HIST_BINS &&  bin >= 0){
 					hist[bin]++; histsum++;
@@ -275,36 +325,47 @@ int rip_main(cv::VideoCapture video, cv::VideoWriter video_out){
 		//Use histogram to create overall threshold
 		int threshsum = 0;
 		int bin = HIST_BINS-1;
-		while(threshsum < (histsum*.03)){
+		while(threshsum < (histsum*.05)){
 			threshsum += hist[bin];
 			bin--;
 		}
-		UPPER = bin/float(resolution);
+		UPPER = bin/float(HIST_RESOLUTION);
+		int targetbin = bin;
 		
 		
 		//As above, but per-direction
 		for(int angle = 0; angle < HIST_DIRECTIONS; angle++){
-			int threshsum = 0;
+			int threshsum2 = 0;
 			int bin = HIST_BINS-1;
-			while(threshsum < (histsum2d[angle]*.03)){
-				threshsum += hist2d[angle][bin];
+			while(threshsum2 < (histsum2d[angle]*.05)){
+				threshsum2 += hist2d[angle][bin];
 				bin--;
 			}
-			UPPER2d[angle] = bin/float(resolution);
+			UPPER2d[angle] = bin/float(HIST_RESOLUTION);
 			if(UPPER2d[angle] < 0.01) {UPPER2d[angle] = 0.01;}//avoid division by 0
-			//printf("Angle %d; frequency: %d; upper: %f\n",angle,histsum2d[angle], UPPER2d[angle]);
+			
+			int threshsum3 = 0;
+			bin = HIST_BINS-1;
+			while(bin > targetbin){
+				threshsum3 += hist2d[angle][bin];
+				bin--;
+			}
+			prop_above_upper[angle] = ((float)threshsum3)/threshsum;
+			
+			
+			//printf("Angle %d; prop_above_upper: %f\n",angle,prop_above_upper[angle]);
 		}
 		
-
+		display_histogram(hist2d,histsum2d,UPPER2d, UPPER,prop_above_upper);
 		
 
 		Mat accumulator2 = Mat::zeros(YDIM, XDIM, CV_32FC3);
 		Mat waterclass = Mat::zeros(YDIM, XDIM, CV_32FC3);
-		
+		Mat counterwave = Mat::zeros(YDIM,XDIM, CV_8UC1);//The current opposing the wave
 
 		//Classify
 		current.forEach<Pixel3>([&](Pixel3& pixel, const int position[]) -> void {
-			
+			uchar* ctrptr = counterwave.ptr<uchar>(position[0],position[1]);
 			Pixel3* classptr = waterclass.ptr<Pixel3>(position[0],position[1]);
 			Pixel3 * pt = accumulator2.ptr<Pixel3>(position[0],position[1]);
 			int angle = (pixel.x * HIST_DIRECTIONS)/ 360; //order matters, truncation
@@ -319,6 +380,8 @@ int rip_main(cv::VideoCapture video, cv::VideoWriter video_out){
 				}
 			}
 			
+			if(prop_above_upper[(angle+HIST_DIRECTIONS/2)%HIST_DIRECTIONS] > .05){*ctrptr = 255*val;}
+			
 			//Rescale for display
 			//pixel.z = 1;
 			pixel.z = val/UPPER2d[angle];
@@ -331,6 +394,7 @@ int rip_main(cv::VideoCapture video, cv::VideoWriter video_out){
 			
 		});
 
+		imshow("counterwave",counterwave);
 		
 		cvtColor(current,current,CV_HSV2BGR);
 		imshow("flow",current);
@@ -373,7 +437,7 @@ int rip_main(cv::VideoCapture video, cv::VideoWriter video_out){
 		
 		
 
-		//imshow("accumulationbuffer",out);
+		imshow("accumulationbuffer",out);
 		
 		Mat morph_window;
 		
@@ -460,7 +524,7 @@ int rip_main(cv::VideoCapture video, cv::VideoWriter video_out){
 		if(true/*framecount>90*/){
 			subframe.forEach<Pixelc>([&](Pixelc& pixel, const int position[]) -> void {
 				uchar over =  *outmask.ptr<uchar>(position[0],position[1]);
-				uchar stream =  *streamoverlay.ptr<uchar>(position[0],position[1]);
+				//uchar stream =  *streamoverlay.ptr<uchar>(position[0],position[1]);
 				if(over){
 					pixel.z = 255;
 				}
@@ -504,48 +568,61 @@ int rip_main(cv::VideoCapture video, cv::VideoWriter video_out){
 	return 0;
 }
 
+void display_histogram(int hist2d[HIST_DIRECTIONS][HIST_BINS],int histsum2d[HIST_DIRECTIONS]
+					,float UPPER2d[HIST_DIRECTIONS], float UPPER, float prop_above_upper[HIST_DIRECTIONS]){
+	namedWindow("Color Histogram", WINDOW_AUTOSIZE );
+	
+	Mat foo = Mat::ones(480, 480, CV_32FC3);
+	
+	foo.forEach<Pixel3>([&](Pixel3& pixel, const int position[]) -> void {
+		
+		
+		float tx = (position[1]-240.0)/240.0;
+		float ty = (position[0]-240.0)/240.0;
+		
+		float theta = atan2(ty,tx)*180/M_PI;//find angle
+		theta += theta < 0 ? 360 : 0; //enforce strict positive angle
+		float r = sqrt(tx*tx + ty*ty);
+		
+		int direction = ((int)((theta * HIST_DIRECTIONS)/360));
+		pixel.x = direction * 360/HIST_DIRECTIONS;
+		
+		//float proportion = ((float)hist2d[direction][(int)(r*HIST_BINS)])/histsum2d[direction];
+		
+		pixel.y = r > UPPER2d[direction]*HIST_RESOLUTION/HIST_BINS ? 0 : 1;
+		pixel.z = r > prop_above_upper[direction]*10 ? 0 : 1;
+	});
+	
+	
+	cvtColor(foo,foo,CV_HSV2BGR);
+	imshow("Color Histogram",foo);
+	
+	return;
 
+}
 
 void wheel(){ //Display the color wheel
 	
 	namedWindow("Color Wheel", WINDOW_AUTOSIZE );
 	
-	Mat foo = Mat::ones(YDIM, YDIM, CV_32FC3);
+	Mat foo = Mat::ones(480, 480, CV_32FC3);
 	
 	foo.forEach<Pixel3>([&](Pixel3& pixel, const int position[]) -> void {
 		
-		float tx = (position[1]-240)/240.0;
-		float ty = (position[0]-240)/240.0;
+		float tx = (position[1]-240.0)/240.0;
+		float ty = (position[0]-240.0)/240.0;
+		
+		float theta = atan2(ty,tx)*180/M_PI;//find angle
+		theta += theta < 0 ? 360 : 0; //enforce strict positive angle
+		float r = sqrt(tx*tx + ty*ty);
+		
+		int direction = ((int)((theta * HIST_DIRECTIONS)/360));
+		pixel.x = direction * 360/HIST_DIRECTIONS;
 		
 		
-		int bin = (int) floor(atan(ty/tx)/M_PI  * 18  );//Begins to calculate the angle as an integer between 1 and 35.
-		
-		
-		
-		if(ty>0){
-			if(tx>0){
-				bin = bin;
-			}else{
-				bin = 18 + bin;
-			}
-		}else{
-			
-			if(tx<0){
-				bin = bin+18;
-			}else{
-				bin = 36 + bin;
-			}
-		}
-		pixel.x = bin * 10;
-		
-		
-		
-		float d = sqrt(tx*tx + ty *ty);
-		
-		
-		pixel.y = d > 1 ? 0 : d;
-		pixel.z = d > 1 ? 0 : 1;
-		//pixel.z = pixel.x;
+		pixel.y = r > 1 ? 0 : 1;
+		pixel.z = r > 1 ? 0 : 1;
+
 		
 	});
 	
@@ -559,4 +636,50 @@ void wheel(){ //Display the color wheel
 
 	
 }
+
+
+void streamline(Pixel2 * pt, cv::Scalar color, cv::Mat flow, cv::Mat overlay, float dt, int iterations, float UPPER, float prop_above_upper[HIST_DIRECTIONS]){
+	
+	
+	for( int i = 0; i< iterations; i++){
+		
+		float x = pt->x;
+		float y = pt->y;
+		
+		int xind = (int) floor(x);
+		int yind = (int) floor(y);
+		float xrem = x - xind;
+		float yrem = y - yind;
+		
+		if(xind < 1 || yind < 1 || xind + 2 > flow.cols || yind  + 2 > flow.rows)  //Verify array bounds
+		{
+			return;
+		}
+		
+		//Bilinear interpolation
+		Pixel2 delta =		(*flow.ptr<Pixel2>(yind,xind))		* (1-xrem)*(1-yrem) +
+		(*flow.ptr<Pixel2>(yind,xind+1))	* (xrem)*(1-yrem) +
+		(*flow.ptr<Pixel2>(yind+1,xind))	* (1-xrem)*(yrem) +
+		(*flow.ptr<Pixel2>(yind+1,xind+1))	* (xrem)*(yrem) ;
+		
+		
+		float theta = atan2(delta.y,delta.x)*180/M_PI;//find angle
+		theta += theta < 0 ? 360 : 0; //enforce strict positive angle
+		int direction = ((int)((theta * HIST_DIRECTIONS)/360));
+		if(prop_above_upper[direction] > .05){return;}
+		
+		float r = sqrt(delta.x*delta.x + delta.y*delta.y);
+		if(r > UPPER){return;}
+		
+		
+		Pixel2 newpt = *pt + delta*dt/iterations;
+		
+		cv::line(overlay,* pt, newpt, color, 1, 8, 0);
+		
+		*pt = newpt;
+	}
+	
+	return;
+}
+
 

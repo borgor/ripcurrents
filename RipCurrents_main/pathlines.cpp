@@ -6,7 +6,7 @@
 
 typedef cv::Point_<float> Pixel2;
 
-int streamline (Pixel2 * pt, cv::Scalar color, cv::Mat flow, cv::Mat overlay, float dt, int iterations){
+void streamline (Pixel2 * pt, cv::Scalar color, cv::Mat flow, cv::Mat overlay, float dt, int iterations){
 
 	Pixel2* flowpt;
 	
@@ -22,7 +22,7 @@ int streamline (Pixel2 * pt, cv::Scalar color, cv::Mat flow, cv::Mat overlay, fl
 
 		if(xind < 1 || yind < 1 || xind + 2 > flow.cols || yind  + 2 > flow.rows)  //Verify array bounds
 		{
-			return -1;
+			return;
 		}
 
 		//Bilinear interpolation
@@ -42,5 +42,7 @@ int streamline (Pixel2 * pt, cv::Scalar color, cv::Mat flow, cv::Mat overlay, fl
 		*pt = newpt;
 	}
 		
-	return 0;
+	return;
 }
+
+
