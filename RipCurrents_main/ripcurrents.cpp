@@ -52,17 +52,6 @@ struct streamlinecontainer{
 	int * count;
 };
 
-void CallBackFunc(int event, int x, int y, int flags, void * dataptr)
-{
-	struct streamlinecontainer * data = (struct streamlinecontainer *) dataptr;
-	if  ( event == EVENT_LBUTTONDOWN )
-	{
-		std::cout << "Left button of the mouse is clicked - position (" << x << ", " << y << ")" << std::endl;
-		(data->array)[(*(data->count))++]=Pixel2(x,y);
-
-	}
-}
-
 
 
 int main(int argc, char** argv )
@@ -188,7 +177,7 @@ int rip_main(cv::VideoCapture video, cv::VideoWriter video_out){
 	Mat streamoverlay = Mat::zeros(YDIM, XDIM, CV_8UC1);
 	Mat streamoverlay_color = Mat::zeros(YDIM, XDIM, CV_8UC3);
 
-	# define MAX_STREAMLINES 250
+	# define MAX_STREAMLINES 500
 	Pixel2 streampt[MAX_STREAMLINES];
 	int streamlines = MAX_STREAMLINES/2;
 
@@ -307,7 +296,15 @@ int rip_main(cv::VideoCapture video, cv::VideoWriter video_out){
 		
 		//Fill histogram
 		
-		//update to 2D histogram
+		/*
+		hist = {0};
+		histsum = 0;
+		hist2d = {0};
+		histsum2d = {0};
+		UPPER2d = {0};
+		prop_above_upper = {0};
+		*/
+		
 		
 		for (int y = 0; y < YDIM; y++) {
 			Pixel3* ptr = current.ptr<Pixel3>(y, 0);
