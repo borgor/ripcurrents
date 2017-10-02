@@ -47,10 +47,6 @@ double timediff(){
 }
 
 
-struct streamlinecontainer{
-	Pixel2 * array;
-	int * count;
-};
 
 
 
@@ -185,14 +181,6 @@ int rip_main(cv::VideoCapture video, cv::VideoWriter video_out){
 		streampt[s] = Pixel2(rand()%XDIM,rand()%YDIM);
 	}
 	namedWindow("streamlines", WINDOW_AUTOSIZE );
-	
-	struct streamlinecontainer data;
-	data.array = streampt;
-	data.count = & streamlines;
-	
-	setMouseCallback("streamlines", CallBackFunc, (void*)&data);
-	
-	
 	
 	
 	int framecount; //Generic iterator for main loop.

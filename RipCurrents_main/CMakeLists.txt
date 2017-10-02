@@ -7,5 +7,3 @@ add_executable( ripcurrents ripcurrents.cpp )
 target_compile_features(ripcurrents PUBLIC cxx_lambdas)
 target_link_libraries( ripcurrents ${OpenCV_LIBS} )
 
-add_executable( stabilize stabilize.cpp )
-target_link_libraries( stabilize ${OpenCV_LIBS} )
