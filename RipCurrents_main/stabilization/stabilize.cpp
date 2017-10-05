@@ -22,7 +22,7 @@ THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND 
 using namespace std;
 using namespace cv;
 
-typedef cv::Point3_<float> Pixel3;
+typedef cv::Point3_<uchar> Pixel;
 
 // This video stablisation smooths the global trajectory using a sliding average window
 
@@ -118,10 +118,11 @@ int main(int argc, char **argv)
         vector <float> err;
 
 		mask = Mat::zeros(cur.size(), CV_8UC1);
-		mask.forEach<uchar>([&](uchar& maskvalue, const int position[]) -> void {
-			Pixel3*  pixel = cur.ptr<Pixel3>(position[0],position[1]);
-			if(pixel->x
-
+		cur.forEach<Pixel>([&](Pixel& pixel, const int position[]) -> void {
+			uchar*  maskvalue = mask.ptr<uchar>(position[0],position[1]);
+				if(pixel.x < 255*.5 || pixel.z > 255*.5){
+					*maskvalue = 255;
+				}
 		});
 		imshow("mask",mask);
 		
@@ -139,7 +140,7 @@ int main(int argc, char **argv)
 		
 		video_out.write(prev);
 		resize(prev,prev,prev.size()/2);
-		imshow("corners",prev);
+		imshow("features",prev);
 		waitKey(1);
 
 		

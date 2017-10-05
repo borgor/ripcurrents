@@ -116,7 +116,7 @@ int rip_main(cv::VideoCapture video, cv::VideoWriter video_out){
 	
 	//A lot of matrices/frames
 	Mat save;
-	Mat frame,f2;
+	Mat frame,f1;
 	Mat subframe;
 	Mat resized;
 	Mat flow_raw;
@@ -192,8 +192,8 @@ int rip_main(cv::VideoCapture video, cv::VideoWriter video_out){
 	video.read(frame);
 	if(frame.empty()){exit(1);}
 	resize(frame,subframe,Size(XDIM,YDIM),0,0,INTER_AREA);
-	cvtColor(subframe,f2,COLOR_BGR2GRAY);
-	f2.copyTo(u_f1);
+	cvtColor(subframe,f1,COLOR_BGR2GRAY);
+	f1.copyTo(u_f2);
 
 
 
@@ -204,8 +204,6 @@ int rip_main(cv::VideoCapture video, cv::VideoWriter video_out){
 		
 		
 		video.read(frame);
-		//video.read(frame); //skip frames for speed
-		//video.read(frame);
 		
 		printf("Frames read: %d\n",framecount);
 		
@@ -215,17 +213,11 @@ int rip_main(cv::VideoCapture video, cv::VideoWriter video_out){
 
 		//Resize, turn to gray.
 		resize(frame,subframe,Size(XDIM,YDIM),0,0,INTER_LINEAR);
-		cvtColor(subframe,f2,COLOR_BGR2GRAY);
-		if(turn){
-			f2.copyTo(u_f1);
-			calcOpticalFlowFarneback(u_f2,u_f1, u_flow, 0.5, 2, 3, 2, 15, 1.2, 0); //Give to GPU, possibly
-			//printf("tick\n");
-		}else{
-			f2.copyTo(u_f2);
-			calcOpticalFlowFarneback(u_f1,u_f2, u_flow, 0.5, 2, 3, 2, 15, 1.2, 0);
-			//printf("tock\n");
-		}
-		turn = !turn;
+		cvtColor(subframe,f1,COLOR_BGR2GRAY);
+		f1.copyTo(u_f1);
+		calcOpticalFlowFarneback(u_f2,u_f1, u_flow, 0.5, 2, 3, 2, 15, 1.2, 0); //Give to GPU, possibly
+		u_f1.copyTo(u_f2);
+		
 		
 		
 		
