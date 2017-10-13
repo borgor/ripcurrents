@@ -9,7 +9,6 @@
 
 
 
-#define STABILIZE 10	//Size of buffer for stabilizing video
 
 
 #define XDIM 640   //Dimensions to resize to
@@ -115,7 +114,6 @@ int main(int argc, char** argv )
 	Mat resized;
 	Mat flow_raw;
 	Mat flow;
-	Mat stable[STABILIZE];
 
 	//OpenCL/GPU matrices
 	UMat u_flow;
@@ -130,7 +128,6 @@ int main(int argc, char** argv )
 	
 	//Zero out accumulators
 	Mat accumulator = Mat::zeros(YDIM, XDIM, CV_32FC3);
-	for(int j = 0 ; j< STABILIZE; j++){stable[j] = Mat::zeros(YDIM, XDIM, CV_32FC2);}
 	
 	Mat out = Mat::zeros(YDIM, XDIM, CV_32FC3);
 	
@@ -203,7 +200,7 @@ int main(int argc, char** argv )
 	for( framecount = 1; true; framecount++){
 
 		
-		
+
 		video.read(frame);
 	
 		printf("Frames read: %d\n",framecount);
@@ -226,13 +223,9 @@ int main(int argc, char** argv )
 		
 		flow_raw = u_flow.getMat(ACCESS_READ); //Tell GPU to give it back
 		
-		for(int j = 0; j<STABILIZE; j++){
-			add(flow_raw,stable[j],stable[j]);
-		}
 		
 		
-		
-		Mat current = stable[framecount%STABILIZE]*(1.0/STABILIZE);
+		Mat current = flow_raw;
 		
 	if(framecount>100)
 	{
@@ -250,12 +243,17 @@ int main(int argc, char** argv )
 		streamlines_distance.convertTo(streamoverlay_color,CV_8UC1,500/sqrt(XDIM*YDIM));
 		applyColorMap(streamoverlay_color, streamoverlay_color, COLORMAP_JET);
 		imshow("streamline total motion",streamoverlay_color);
+		divide(streamfield,streamlines_distance,streamoverlay_color);
+		streamoverlay_color.convertTo(streamoverlay_color,CV_8UC1,125);
+		applyColorMap(streamoverlay_color, streamoverlay_color, COLORMAP_JET);
+		imshow("streamline displacement/motion ratio",streamoverlay_color);
 		
 		for(int s = 0; s < streamlines; s++){
 			streamline(streampt+s, Scalar(framecount*(255.0/totalframes)), current, streamoverlay, 2, 1,UPPER,prop_above_upper);
 		}
 	}
 		
+
 		applyColorMap(streamoverlay, streamoverlay_color, COLORMAP_RAINBOW);
 		Mat streamout;
 		subframe.copyTo(streamout);
@@ -547,7 +545,6 @@ int main(int argc, char** argv )
 		video_borders.write(subframe);
 
 		waitKey(1);
-		stable[framecount%STABILIZE] = Mat::zeros(YDIM, XDIM, CV_32FC2);
 		
 		//timediff();
 		
