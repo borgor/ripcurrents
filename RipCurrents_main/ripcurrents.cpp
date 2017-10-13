@@ -33,6 +33,7 @@ void display_histogram(int hist2d[HIST_DIRECTIONS][HIST_BINS], int histsum2d[HIS
 
 void streamline(Pixel2 * pt, cv::Scalar color, cv::Mat flow, cv::Mat overlay, float dt, int iterations, float UPPER, float prop_above_upper[HIST_DIRECTIONS]);
 
+void streamline_field(Pixel2 * pt, float* distancetraveled, int xoffset, int yoffset, cv::Mat flow, float dt, int iterations, float UPPER, float prop_above_upper[HIST_DIRECTIONS]);
 
 int rip_main(cv::VideoCapture video, cv::VideoWriter video_out);
 
@@ -75,30 +76,23 @@ int main(int argc, char** argv )
 	}
 	
 	
-	VideoWriter video_out("video_out.avi",CV_FOURCC('M','J','P','G'), 10, cv::Size(XDIM,YDIM),true);
+	VideoWriter video_streamlines("video_streamlines.avi",CV_FOURCC('M','J','P','G'), 10, cv::Size(XDIM,YDIM),true);
 	
-	if (!video_out.isOpened())
+	if (!video_streamlines.isOpened())
 	{
 		std::cout << "!!! Output video could not be opened" << std::endl;
 		exit(-1);
 	}
 	
+	VideoWriter video_borders("video_borders.avi",CV_FOURCC('M','J','P','G'), 10, cv::Size(XDIM,YDIM),true);
 	
+	if (!video_borders.isOpened())
+	{
+		std::cout << "!!! Output video could not be opened" << std::endl;
+		exit(-1);
+	}
 	
-	
 
-	
-	
-	rip_main(video, video_out);
-	
-}
-
-
-
-
-
-
-int rip_main(cv::VideoCapture video, cv::VideoWriter video_out){
 	double time_farneback = 0;
 	double time_polar = 0;
 	double time_threshold = 0;
@@ -173,6 +167,13 @@ int rip_main(cv::VideoCapture video, cv::VideoWriter video_out){
 	Mat streamoverlay = Mat::zeros(YDIM, XDIM, CV_8UC1);
 	Mat streamoverlay_color = Mat::zeros(YDIM, XDIM, CV_8UC3);
 
+	//initialize streamline scalar field
+	Mat streamlines_mat = Mat::zeros(YDIM,XDIM,CV_32FC2); //Track displacement from initial point
+	Mat streamlines_distance = Mat::zeros(YDIM,XDIM,CV_32FC1); //Track total distance traveled
+	
+		
+	
+	 //Code for discrete streamline initialization
 	# define MAX_STREAMLINES 500
 	Pixel2 streampt[MAX_STREAMLINES];
 	int streamlines = MAX_STREAMLINES/2;
@@ -204,11 +205,13 @@ int rip_main(cv::VideoCapture video, cv::VideoWriter video_out){
 		
 		
 		video.read(frame);
-		
+	
 		printf("Frames read: %d\n",framecount);
+
+
 		
 		if(frame.empty()){break;}
-		time_codec += timediff();
+		//time_codec += timediff();
 
 
 		//Resize, turn to gray.
@@ -231,12 +234,27 @@ int rip_main(cv::VideoCapture video, cv::VideoWriter video_out){
 		
 		Mat current = stable[framecount%STABILIZE]*(1.0/STABILIZE);
 		
-		time_farneback += timediff();
+	if(framecount>100)
+	{
+		//time_farneback += timediff();
 		
-
+		streamlines_mat.forEach<Pixel2>([&](Pixel2& pixel, const int position[]) -> void {
+			streamline_field(&pixel, streamlines_distance.ptr<float>(position[0],position[1]), position[1],position[0], current, 2, 1,UPPER,prop_above_upper);
+		});
+		Mat streamfield;
+		split(streamlines_mat,splitarr);
+		magnitude(splitarr[0],splitarr[1],streamfield);
+		streamfield.convertTo(streamoverlay_color,CV_8UC1,500/sqrt(XDIM*YDIM));
+		applyColorMap(streamoverlay_color, streamoverlay_color, COLORMAP_JET);
+		imshow("streamline field",streamoverlay_color);
+		streamlines_distance.convertTo(streamoverlay_color,CV_8UC1,500/sqrt(XDIM*YDIM));
+		applyColorMap(streamoverlay_color, streamoverlay_color, COLORMAP_JET);
+		imshow("streamline total motion",streamoverlay_color);
+		
 		for(int s = 0; s < streamlines; s++){
 			streamline(streampt+s, Scalar(framecount*(255.0/totalframes)), current, streamoverlay, 2, 1,UPPER,prop_above_upper);
 		}
+	}
 		
 		applyColorMap(streamoverlay, streamoverlay_color, COLORMAP_RAINBOW);
 		Mat streamout;
@@ -247,7 +265,7 @@ int rip_main(cv::VideoCapture video, cv::VideoWriter video_out){
 
 
 
-		time_stream+= timediff();
+		//time_stream+= timediff();
 
 		/*
 		pMOG2->apply(subframe, fgMaskMOG2);
@@ -270,7 +288,7 @@ int rip_main(cv::VideoCapture video, cv::VideoWriter video_out){
 	
 		//imshow("pathline",visibleflow+streamoverlay);
 		
-		time_polar += timediff();
+		//time_polar += timediff();
 		
 		
 		
@@ -338,11 +356,21 @@ int rip_main(cv::VideoCapture video, cv::VideoWriter video_out){
 
 		Mat accumulator2 = Mat::zeros(YDIM, XDIM, CV_32FC3);
 		Mat waterclass = Mat::zeros(YDIM, XDIM, CV_32FC3);
-		Mat counterwave = Mat::zeros(YDIM,XDIM, CV_8UC1);//The current opposing the wave
+
+		/*
+		Mat whitewater = Mat::zeros(YDIM,XDIM, CV_8UC1);
+		
+		subframe.forEach<Pixelc>([&](Pixelc& pixel, const int position[]) -> void {
+			uchar* wtptr = whitewater.ptr<uchar>(position[0],position[1]);
+			if(pixel.x > 150 && pixel.y > 150 && pixel.z > 150){ 
+				*wtptr = 255;
+			}
+	});
+		imshow("white pixels",whitewater);
+		*/
 
 		//Classify
 		current.forEach<Pixel3>([&](Pixel3& pixel, const int position[]) -> void {
-			uchar* ctrptr = counterwave.ptr<uchar>(position[0],position[1]);
 			Pixel3* classptr = waterclass.ptr<Pixel3>(position[0],position[1]);
 			Pixel3 * pt = accumulator2.ptr<Pixel3>(position[0],position[1]);
 			int angle = (pixel.x * HIST_DIRECTIONS)/ 360; //order matters, truncation
@@ -357,7 +385,6 @@ int rip_main(cv::VideoCapture video, cv::VideoWriter video_out){
 				}
 			}
 			
-			if(prop_above_upper[(angle+HIST_DIRECTIONS/2)%HIST_DIRECTIONS] > .05){*ctrptr = 255*val;}
 			
 			//Rescale for display
 			//pixel.z = 1;
@@ -371,7 +398,6 @@ int rip_main(cv::VideoCapture video, cv::VideoWriter video_out){
 			
 		});
 
-		imshow("counterwave",counterwave);
 		
 		cvtColor(current,current,CV_HSV2BGR);
 		imshow("flow",current);
@@ -379,7 +405,7 @@ int rip_main(cv::VideoCapture video, cv::VideoWriter video_out){
 
 		
 		
-		time_threshold += timediff();
+		//time_threshold += timediff();
 		
 		//accumulator accumulates waves
 		if(framecount > 30){
@@ -455,7 +481,7 @@ int rip_main(cv::VideoCapture video, cv::VideoWriter video_out){
 		imshow("edges",outmask);
 		
 		
-		time_erosion += timediff();
+		//time_erosion += timediff();
 		
 		
 	
@@ -514,17 +540,19 @@ int rip_main(cv::VideoCapture video, cv::VideoWriter video_out){
 			});
 		}
 	
-		time_overlay += timediff();
+		//time_overlay += timediff();
 		imshow("output",subframe);
 		
-		video_out.write(streamout);
+		video_streamlines.write(streamout);
+		video_borders.write(subframe);
 
 		waitKey(1);
 		stable[framecount%STABILIZE] = Mat::zeros(YDIM, XDIM, CV_32FC2);
 		
-		timediff();
+		//timediff();
 		
 	}
+	/*
 	printf("Frames read: %d\n",frames_read);
 	printf("Time spent on farneback: %f\n",time_farneback);
 	printf("Time spent on polar coordinates: %f\n",time_polar);
@@ -533,14 +561,18 @@ int rip_main(cv::VideoCapture video, cv::VideoWriter video_out){
 	printf("Time spent on erosion: %f\n",time_erosion);
 	printf("Time spent on codec: %f\n",time_codec);
 	printf("Time spent on pathlines: %f\n",time_stream);
-	
+	*/
+	 
 	//Clean up
 	
 	flow_raw.release();
 	
 	//waitKey(0);
 	video.release();
-	video_out.release();
+	video_streamlines.release();
+	video_borders.release();
+	
+	waitKey(0);
 	
 	return 0;
 }
@@ -613,6 +645,50 @@ void wheel(){ //Display the color wheel
 
 	
 }
+
+void streamline_field(Pixel2 * pt, float* distancetraveled, int xoffset, int yoffset, cv::Mat flow, float dt, int iterations, float UPPER, float prop_above_upper[HIST_DIRECTIONS]){
+	
+	
+	for( int i = 0; i< iterations; i++){
+		
+		float x = pt->x + xoffset;
+		float y = pt->y + yoffset;
+		
+		int xind = (int) floor(x);
+		int yind = (int) floor(y);
+		float xrem = x - xind;
+		float yrem = y - yind;
+		
+		if(xind < 1 || yind < 1 || xind + 2 > flow.cols || yind  + 2 > flow.rows)  //Verify array bounds
+		{
+			return;
+		}
+		
+		//Bilinear interpolation
+		Pixel2 delta =		(*flow.ptr<Pixel2>(yind,xind))		* (1-xrem)*(1-yrem) +
+		(*flow.ptr<Pixel2>(yind,xind+1))	* (xrem)*(1-yrem) +
+		(*flow.ptr<Pixel2>(yind+1,xind))	* (1-xrem)*(yrem) +
+		(*flow.ptr<Pixel2>(yind+1,xind+1))	* (xrem)*(yrem) ;
+		
+		
+		float theta = atan2(delta.y,delta.x)*180/M_PI;//find angle
+		theta += theta < 0 ? 360 : 0; //enforce strict positive angle
+		int direction = ((int)((theta * HIST_DIRECTIONS)/360));
+		if(prop_above_upper[direction] > .05){return;}
+		
+		float r = sqrt(delta.x*delta.x + delta.y*delta.y);
+		if(r > UPPER){return;}
+		
+		Pixel2 newpt = *pt + delta*dt/iterations;
+		*distancetraveled = *distancetraveled + r;
+		
+		*pt = newpt;
+	}
+	
+	return;
+}
+
+
 
 
 void streamline(Pixel2 * pt, cv::Scalar color, cv::Mat flow, cv::Mat overlay, float dt, int iterations, float UPPER, float prop_above_upper[HIST_DIRECTIONS]){
