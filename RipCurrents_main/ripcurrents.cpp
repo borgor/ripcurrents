@@ -208,7 +208,7 @@ int main(int argc, char** argv )
 
 		
 		if(frame.empty()){break;}
-		//time_codec += timediff();
+		time_codec += timediff();
 
 
 		//Resize, turn to gray.
@@ -227,9 +227,12 @@ int main(int argc, char** argv )
 		
 		Mat current = flow_raw;
 		
+		time_farneback += timediff();
+		
+		
 	if(framecount>100)
 	{
-		//time_farneback += timediff();
+		
 		
 		streamlines_mat.forEach<Pixel2>([&](Pixel2& pixel, const int position[]) -> void {
 			streamline_field(&pixel, streamlines_distance.ptr<float>(position[0],position[1]), position[1],position[0], current, 2, 1,UPPER,prop_above_upper);
@@ -263,7 +266,9 @@ int main(int argc, char** argv )
 
 
 
-		//time_stream+= timediff();
+		time_stream+= timediff();
+		
+		
 
 		/*
 		pMOG2->apply(subframe, fgMaskMOG2);
@@ -286,7 +291,7 @@ int main(int argc, char** argv )
 	
 		//imshow("pathline",visibleflow+streamoverlay);
 		
-		//time_polar += timediff();
+		time_polar += timediff();
 		
 		
 		
@@ -403,7 +408,7 @@ int main(int argc, char** argv )
 
 		
 		
-		//time_threshold += timediff();
+		time_threshold += timediff();
 		
 		//accumulator accumulates waves
 		if(framecount > 30){
@@ -479,7 +484,7 @@ int main(int argc, char** argv )
 		imshow("edges",outmask);
 		
 		
-		//time_erosion += timediff();
+		time_erosion += timediff();
 		
 		
 	
@@ -549,7 +554,7 @@ int main(int argc, char** argv )
 		//timediff();
 		
 	}
-	/*
+	
 	printf("Frames read: %d\n",frames_read);
 	printf("Time spent on farneback: %f\n",time_farneback);
 	printf("Time spent on polar coordinates: %f\n",time_polar);
@@ -558,7 +563,7 @@ int main(int argc, char** argv )
 	printf("Time spent on erosion: %f\n",time_erosion);
 	printf("Time spent on codec: %f\n",time_codec);
 	printf("Time spent on pathlines: %f\n",time_stream);
-	*/
+	
 	 
 	//Clean up
 	
