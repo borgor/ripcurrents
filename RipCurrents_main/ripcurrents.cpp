@@ -152,7 +152,7 @@ int main(int argc, char** argv )
 	int histsum = 0;
 	float UPPER = 100.0; //UPPER can be determined programmatically
 	
-	int hist2d[HIST_DIRECTIONS][HIST_BINS] = {0};
+	int hist2d[HIST_DIRECTIONS][HIST_BINS] = {{0}};
 	int histsum2d[HIST_DIRECTIONS] = {0};
 	float UPPER2d[HIST_DIRECTIONS] = {0};
 	float prop_above_upper[HIST_DIRECTIONS] = {0};
@@ -167,7 +167,7 @@ int main(int argc, char** argv )
 	//initialize streamline scalar field
 	Mat streamlines_mat = Mat::zeros(YDIM,XDIM,CV_32FC2); //Track displacement from initial point
 	Mat streamlines_distance = Mat::zeros(YDIM,XDIM,CV_32FC1); //Track total distance traveled
-	
+	Mat streamlines_density_history = Mat::zeros(YDIM/5,XDIM/5,CV_32FC1);
 		
 	
 	 //Code for discrete streamline initialization
@@ -183,8 +183,6 @@ int main(int argc, char** argv )
 	
 	int framecount; //Generic iterator for main loop.
 	
-	
-	int turn = 0;  //Alternator
 	
 	//Preload a frame
 	video.read(frame);
@@ -237,36 +235,83 @@ int main(int argc, char** argv )
 		streamlines_mat.forEach<Pixel2>([&](Pixel2& pixel, const int position[]) -> void {
 			streamline_field(&pixel, streamlines_distance.ptr<float>(position[0],position[1]), position[1],position[0], current, 2, 1,UPPER,prop_above_upper);
 		});
+		
 		Mat streamfield;
 		split(streamlines_mat,splitarr);
 		magnitude(splitarr[0],splitarr[1],streamfield);
-		streamfield.convertTo(streamoverlay_color,CV_8UC1,500/sqrt(XDIM*YDIM));
+		
+		double lenmax;
+		minMaxLoc(streamfield,NULL,&lenmax,NULL,NULL);
+		streamfield.convertTo(streamoverlay_color,CV_8UC1,255/lenmax);
 		applyColorMap(streamoverlay_color, streamoverlay_color, COLORMAP_JET);
-		imshow("streamline field",streamoverlay_color);
-		streamlines_distance.convertTo(streamoverlay_color,CV_8UC1,500/sqrt(XDIM*YDIM));
+		imshow("streamline displacement",streamoverlay_color);
+		
+		double distmax;
+		minMaxLoc(streamlines_distance,NULL,&distmax,NULL,NULL);
+		streamlines_distance.convertTo(streamoverlay_color,CV_8UC1,255/distmax);
 		applyColorMap(streamoverlay_color, streamoverlay_color, COLORMAP_JET);
 		imshow("streamline total motion",streamoverlay_color);
+		
 		divide(streamfield,streamlines_distance,streamoverlay_color);
-		streamoverlay_color.convertTo(streamoverlay_color,CV_8UC1,125);
+		double ratiomax;
+		minMaxLoc(streamoverlay_color,NULL,&ratiomax,NULL,NULL);
+		streamoverlay_color.convertTo(streamoverlay_color,CV_8UC1,255/ratiomax);
 		applyColorMap(streamoverlay_color, streamoverlay_color, COLORMAP_JET);
 		imshow("streamline displacement/motion ratio",streamoverlay_color);
 		
+		Mat streamline_density = Mat::zeros(YDIM/5, XDIM/5, CV_32FC1);
+		
+		for (int y = 0; y < YDIM; y++) {
+			Pixel2* ptr = streamlines_mat.ptr<Pixel2>(y, 0);
+			const Pixel2* ptr_end = ptr + (int)XDIM;
+			for (int x = 0 ; ptr != ptr_end; ++ptr, x++) {
+				int xind = (int) roundf(floor(ptr->x + x)/5);
+				int yind = (int) roundf(floor(ptr->y + y)/5);
+				if(xind < 1 || yind < 1 || xind + 2 > streamline_density.cols || yind  + 2 > streamline_density.rows)  //Verify array bounds
+					{continue;}
+
+				float * density_ptr = streamline_density.ptr<float>(yind,xind);
+				(*density_ptr)++;
+				
+			}
+		}
+		
+		double densitymax, densitymin;
+		minMaxLoc(streamline_density,&densitymin,&densitymax,NULL,NULL);
+		streamline_density.convertTo(streamoverlay_color,CV_8UC1,4*255/(densitymax-densitymin));
+		resize(streamoverlay_color,streamoverlay_color,Size(XDIM,YDIM),0,0,INTER_LINEAR);
+		applyColorMap(streamoverlay_color, streamoverlay_color, COLORMAP_JET);
+		imshow("streamline density",streamoverlay_color);
+		
+		streamlines_density_history = streamlines_density_history + streamline_density;
+		minMaxLoc(streamlines_density_history,&densitymin,&densitymax,NULL,NULL);
+		subtract(streamlines_density_history,densitymin,streamoverlay_color);
+		streamoverlay_color.convertTo(streamoverlay_color,CV_8UC1,4*255/(densitymax-densitymin));
+		resize(streamoverlay_color,streamoverlay_color,Size(XDIM,YDIM),0,0,INTER_LINEAR);
+		applyColorMap(streamoverlay_color, streamoverlay_color, COLORMAP_JET);
+		imshow("streamline density (history)",streamoverlay_color);
+		
+		//Heatmap of positions
+		//Heatmap of traffic
+		//Requires a new function: takes a streamline mat and a heatmap mat
+		//For each pixel, increment the position. No, you can't do this with atomics
+		
+		
+		//Discrete streamlines here
 		for(int s = 0; s < streamlines; s++){
 			streamline(streampt+s, Scalar(framecount*(255.0/totalframes)), current, streamoverlay, 2, 1,UPPER,prop_above_upper);
 		}
-	}
 		
-
 		applyColorMap(streamoverlay, streamoverlay_color, COLORMAP_RAINBOW);
 		Mat streamout;
 		subframe.copyTo(streamout);
 		add(streamoverlay_color, streamout, streamout, streamoverlay, -1);
 		imshow("streamlines",streamout);
-		
-
-
-
+		video_streamlines.write(streamout);
 		time_stream+= timediff();
+	}
+	
+		
 		
 		
 
@@ -546,7 +591,7 @@ int main(int argc, char** argv )
 		//time_overlay += timediff();
 		imshow("output",subframe);
 		
-		video_streamlines.write(streamout);
+		
 		video_borders.write(subframe);
 
 		waitKey(1);
