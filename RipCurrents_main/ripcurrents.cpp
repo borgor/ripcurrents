@@ -74,6 +74,13 @@ int main(int argc, char** argv )
 		}
 	}
 	
+	VideoWriter video_streamlines_only("video_streamlines_only.avi",CV_FOURCC('M','J','P','G'), 10, cv::Size(XDIM,YDIM),true);
+	
+	if (!video_streamlines_only.isOpened())
+	{
+		std::cout << "!!! Output video could not be opened" << std::endl;
+		exit(-1);
+	}
 	
 	VideoWriter video_streamlines("video_streamlines.avi",CV_FOURCC('M','J','P','G'), 10, cv::Size(XDIM,YDIM),true);
 	
@@ -167,7 +174,7 @@ int main(int argc, char** argv )
 	//initialize streamline scalar field
 	Mat streamlines_mat = Mat::zeros(YDIM,XDIM,CV_32FC2); //Track displacement from initial point
 	Mat streamlines_distance = Mat::zeros(YDIM,XDIM,CV_32FC1); //Track total distance traveled
-	Mat streamlines_density_history = Mat::zeros(YDIM/5,XDIM/5,CV_32FC1);
+	Mat streamlines_density_history = Mat::zeros(YDIM/10,XDIM/10,CV_32FC1);
 		
 	
 	 //Code for discrete streamline initialization
@@ -259,23 +266,25 @@ int main(int argc, char** argv )
 		applyColorMap(streamoverlay_color, streamoverlay_color, COLORMAP_JET);
 		imshow("streamline displacement/motion ratio",streamoverlay_color);
 		
-		Mat streamline_density = Mat::zeros(YDIM/5, XDIM/5, CV_32FC1);
+		Mat streamline_positions = Mat::zeros(YDIM, XDIM, CV_32FC1);
 		
 		for (int y = 0; y < YDIM; y++) {
 			Pixel2* ptr = streamlines_mat.ptr<Pixel2>(y, 0);
 			const Pixel2* ptr_end = ptr + (int)XDIM;
 			for (int x = 0 ; ptr != ptr_end; ++ptr, x++) {
-				int xind = (int) roundf(floor(ptr->x + x)/5);
-				int yind = (int) roundf(floor(ptr->y + y)/5);
-				if(xind < 1 || yind < 1 || xind + 2 > streamline_density.cols || yind  + 2 > streamline_density.rows)  //Verify array bounds
+				int xind = (int) roundf(floor(ptr->x + x));
+				int yind = (int) roundf(floor(ptr->y + y));
+				if(xind < 1 || yind < 1 || xind + 2 > streamline_positions.cols || yind  + 2 > streamline_positions.rows)  //Verify array bounds
 					{continue;}
 
-				float * density_ptr = streamline_density.ptr<float>(yind,xind);
-				(*density_ptr)++;
+				float * density_ptr = streamline_positions.ptr<float>(yind,xind);
+				(*density_ptr) = 1;
 				
 			}
 		}
-		
+		imshow("streamline positions",streamline_positions);
+		video_streamlines_only.write(streamline_positions);
+		/*
 		double densitymax, densitymin;
 		minMaxLoc(streamline_density,&densitymin,&densitymax,NULL,NULL);
 		streamline_density.convertTo(streamoverlay_color,CV_8UC1,4*255/(densitymax-densitymin));
@@ -290,7 +299,7 @@ int main(int argc, char** argv )
 		resize(streamoverlay_color,streamoverlay_color,Size(XDIM,YDIM),0,0,INTER_LINEAR);
 		applyColorMap(streamoverlay_color, streamoverlay_color, COLORMAP_JET);
 		imshow("streamline density (history)",streamoverlay_color);
-		
+		*/
 		//Heatmap of positions
 		//Heatmap of traffic
 		//Requires a new function: takes a streamline mat and a heatmap mat
@@ -309,6 +318,7 @@ int main(int argc, char** argv )
 		imshow("streamlines",streamout);
 		video_streamlines.write(streamout);
 		time_stream+= timediff();
+		
 	}
 	
 		
@@ -617,6 +627,7 @@ int main(int argc, char** argv )
 	//waitKey(0);
 	video.release();
 	video_streamlines.release();
+	video_streamlines_only.release();
 	video_borders.release();
 	
 	waitKey(0);
@@ -721,7 +732,7 @@ void streamline_field(Pixel2 * pt, float* distancetraveled, int xoffset, int yof
 		float theta = atan2(delta.y,delta.x)*180/M_PI;//find angle
 		theta += theta < 0 ? 360 : 0; //enforce strict positive angle
 		int direction = ((int)((theta * HIST_DIRECTIONS)/360));
-		if(prop_above_upper[direction] > .05){return;}
+		//if(prop_above_upper[direction] > .05){return;}
 		
 		float r = sqrt(delta.x*delta.x + delta.y*delta.y);
 		if(r > UPPER){return;}
@@ -766,7 +777,7 @@ void streamline(Pixel2 * pt, cv::Scalar color, cv::Mat flow, cv::Mat overlay, fl
 		float theta = atan2(delta.y,delta.x)*180/M_PI;//find angle
 		theta += theta < 0 ? 360 : 0; //enforce strict positive angle
 		int direction = ((int)((theta * HIST_DIRECTIONS)/360));
-		if(prop_above_upper[direction] > .05){return;}
+		//if(prop_above_upper[direction] > .05){return;}
 		
 		float r = sqrt(delta.x*delta.x + delta.y*delta.y);
 		if(r > UPPER){return;}
