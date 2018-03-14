@@ -278,7 +278,7 @@ int main(int argc, char** argv )
 		video_streamlines_only.write(streamline_density);
 		
 		
-		//Discrete streamlines handled
+		//Discrete streamlines handled here
 		for(int s = 0; s < streamlines; s++){
 			streamline(streampt+s, Scalar(framecount*(255.0/totalframes)), current, streamoverlay, 2, 1,UPPER,prop_above_upper);
 		}
@@ -312,19 +312,8 @@ int main(int argc, char** argv )
 		time_polar += timediff();
 		
 		
-		
-		//Fill histogram
-		
-		/*
-		hist = {0};
-		histsum = 0;
-		hist2d = {0};
-		histsum2d = {0};
-		UPPER2d = {0};
-		prop_above_upper = {0};
-		*/
-		
-		
+		//Construct histograms to get thresholds
+
 		for (int y = 0; y < YDIM; y++) {
 			Pixel3* ptr = current.ptr<Pixel3>(y, 0);
 			const Pixel3* ptr_end = ptr + (int)XDIM;
@@ -379,7 +368,7 @@ int main(int argc, char** argv )
 		Mat waterclass = Mat::zeros(Size(XDIM, YDIM), CV_32FC3);
 
 
-		//Classify
+		//Classify into fast and slow movement
 		current.forEach<Pixel3>([&](Pixel3& pixel, const int position[]) -> void {
 			Pixel3* classptr = waterclass.ptr<Pixel3>(position[0],position[1]);
 			Pixel3 * pt = accumulator2.ptr<Pixel3>(position[0],position[1]);
@@ -417,7 +406,7 @@ int main(int argc, char** argv )
 		
 		time_threshold += timediff();
 		
-		//accumulator accumulates waves
+		//For every pixel, if it has been identified as fast(possibly a wave), increment a counter.
 		if(framecount > 30){
 			add(accumulator2,accumulator,accumulator);
 		}
@@ -448,8 +437,6 @@ int main(int argc, char** argv )
 		//Use morphological operations to reduce noise, find edges
 		
 		
-		
-
 		imshow("accumulationbuffer",out);
 		
 		Mat morph_window;
