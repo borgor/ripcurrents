@@ -223,7 +223,7 @@ int main(int argc, char** argv )
 		
 		
 
-		
+		//Simulate the movement of particles in the flow field.
 		
 		streamlines_mat.forEach<Pixel2>([&](Pixel2& pixel, const int position[]) -> void {
 			streamline_field(&pixel, streamlines_distance.ptr<float>(position[0],position[1]), position[1],position[0], current, 2, 1,UPPER,prop_above_upper);
@@ -278,7 +278,7 @@ int main(int argc, char** argv )
 		video_streamlines_only.write(streamline_density);
 		
 		
-		//Discrete streamlines handled here
+		//Discrete,drawable streamlines handled here
 		for(int s = 0; s < streamlines; s++){
 			streamline(streampt+s, Scalar(framecount*(255.0/totalframes)), current, streamoverlay, 2, 1,UPPER,prop_above_upper);
 		}
@@ -300,6 +300,7 @@ int main(int argc, char** argv )
 		
 		//convert the x,y current flow field into angle,magnitude form.
 		//Specifically, angle,magnitude,magnitude, as it is later displayed with HSV
+		//This is more interesting to analyze
 		split(current,splitarr);
 		Mat combine[3];
 		cartToPolar(splitarr[0], splitarr[1], combine[2], combine[0],true);
@@ -313,7 +314,7 @@ int main(int argc, char** argv )
 		
 		
 		//Construct histograms to get thresholds
-
+		//Figure out what "slow" or "fast" is
 		for (int y = 0; y < YDIM; y++) {
 			Pixel3* ptr = current.ptr<Pixel3>(y, 0);
 			const Pixel3* ptr_end = ptr + (int)XDIM;
@@ -339,6 +340,8 @@ int main(int argc, char** argv )
 		
 		
 		//As above, but per-direction
+		//This is more of a visual aid, allowing small motion in directions with 
+		//little movement to not be drowned out by large-scale motion
 		for(int angle = 0; angle < HIST_DIRECTIONS; angle++){
 			int threshsum2 = 0;
 			int bin = HIST_BINS-1;
@@ -416,7 +419,7 @@ int main(int argc, char** argv )
 		Mat outmask = Mat::zeros(Size(XDIM, YDIM), CV_8UC1);
 		
 		
-		//Visualize accumulation buffer. Thresholds need tweaking
+		//Visualize the accumulated waves
 		out.forEach<Pixel3>([&](Pixel3& pixel, const int position[]) -> void {
 			Pixel3* accptr = accumulator.ptr<Pixel3>(position[0],position[1]);
 			uchar* maskptr = outmask.ptr<uchar>(position[0],position[1]);
@@ -434,9 +437,7 @@ int main(int argc, char** argv )
 			}
 		});
 		
-		//Use morphological operations to reduce noise, find edges
-		
-		
+		//Use morphological operations to reduce noise, find edges in waves
 		imshow("accumulationbuffer",out);
 		
 		Mat morph_window;
@@ -481,46 +482,9 @@ int main(int argc, char** argv )
 		time_erosion += timediff();
 		
 		
-	
-		/*
-		Mat edges, edges2;
-		out.convertTo(edges,CV_8UC1,255);
-		cvtColor(edges,edges,CV_BGR2GRAY);
-		Canny(edges,edges2,10,50,5,false);
-		imshow("edges",edges2);
-		
-		time_edges += timediff();
-		*/
-		
-		
 		Mat overlay = Mat::zeros(Size(XDIM, YDIM), CV_8UC3);
 		
-		//Find green surrounded by red in accumulator image, create overlay
-#define localwin 20
-		/*
-		for (int y = 0; y < YDIM- localwin*2; y+=localwin) {
-			for (int x = 0 ; x < XDIM - localwin*2; x+=localwin) {
-				int hisum = 0; int losum = 0;
-				for(int k = 0; k < localwin*2; k++){
-					for(int j = 0; j<localwin*2; j++){
-						if(out.ptr<Pixel3>(y+j, x+k)->z){hisum++;}
-						if(out.ptr<Pixel3>(y+j, x+k)->y){losum++;}
-					}
-				}
-				if(hisum > localwin*localwin/1.5 && losum > localwin*localwin/1.5){
-					//printf("%d %d\n",hisum,losum);
-					for(int k = 0; k < localwin*2; k++){
-						for(int j = 0; j<localwin*2; j++){
-							if(out.ptr<Pixel3>(y+j, x+k)->y){overlay.ptr<Pixelc>(y+j, x+k)->z ++;}
-						}
-					}
-				}
-			}
-		}
-		 */
-
-		
-		//Combine overlay and original
+		//Combine edges and original
 		if(true/*framecount>90*/){
 			subframe.forEach<Pixelc>([&](Pixelc& pixel, const int position[]) -> void {
 				uchar over =  *outmask.ptr<uchar>(position[0],position[1]);
