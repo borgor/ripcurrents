@@ -74,8 +74,8 @@ int main(int argc, char** argv )
 		}
 	}
 	
-	VideoWriter video_streamlines_only("video_streamlines_only.avi",CV_FOURCC('M','J','P','G'), 10, cv::Size(XDIM,YDIM),true);
 	
+	VideoWriter video_streamlines_only("video_streamlines.avi",CV_FOURCC('M','J','P','G'), 10, cv::Size(XDIM,YDIM),true);
 	if (!video_streamlines_only.isOpened())
 	{
 		std::cout << "!!! Output video could not be opened" << std::endl;
@@ -126,30 +126,18 @@ int main(int argc, char** argv )
 	UMat u_flow;
 	UMat u_f1,u_f2;
 	
-	/*
-	Ptr<BackgroundSubtractor> pMOG2;
-	pMOG2 = createBackgroundSubtractorMOG2();
-	Mat fgMaskMOG2;
-	Mat MOG_accumulator = Mat::zeros(YDIM,XDIM,CV_32FC1);
-	*/
+
 	
 	//Zero out accumulators
-	Mat accumulator = Mat::zeros(YDIM, XDIM, CV_32FC3);
+	Mat accumulator = Mat::zeros(Size(XDIM,YDIM), CV_32FC3);
 	
-	Mat out = Mat::zeros(YDIM, XDIM, CV_32FC3);
+	Mat out = Mat::zeros(Size(XDIM, YDIM), CV_32FC3);
 	
 	Mat splitarr[2];
 	
-
-	//Output windows
-	//namedWindow("Rip Current Detector", WINDOW_AUTOSIZE );
-	//namedWindow("Flow", WINDOW_AUTOSIZE );
-	//namedWindow("Classifier", WINDOW_AUTOSIZE );
-	//namedWindow("Accumulator", WINDOW_AUTOSIZE );
-	
 	
 
-	//Some thresholds to mask out any remaining jitter, and strong waves. Don't know how to calculate them.
+	//Some thresholds to mask out any remaining jitter, and strong waves. Don't know how to calculate them at runtime, so they're arbitrary.
 	float LOWER =  0.2;
 	float MID  = .5;
 
@@ -168,8 +156,8 @@ int main(int argc, char** argv )
 	
 	
 	sranddev();
-	Mat streamoverlay = Mat::zeros(YDIM, XDIM, CV_8UC1);
-	Mat streamoverlay_color = Mat::zeros(YDIM, XDIM, CV_8UC3);
+	Mat streamoverlay = Mat::zeros(Size(XDIM, YDIM), CV_8UC1);
+	Mat streamoverlay_color = Mat::zeros(Size(XDIM, YDIM), CV_8UC3);
 
 	//initialize streamline scalar field
 	Mat streamlines_mat = Mat::zeros(YDIM,XDIM,CV_32FC2); //Track displacement from initial point
@@ -216,16 +204,15 @@ int main(int argc, char** argv )
 		time_codec += timediff();
 
 
-		//Resize, turn to gray.
+		//Resize
 		resize(frame,subframe,Size(XDIM,YDIM),0,0,INTER_LINEAR);
 		cvtColor(subframe,f1,COLOR_BGR2GRAY);
+		
+		//Move to GPU (if possible), compute flow, move back
 		f1.copyTo(u_f1);
+		//Parameters are tweakable
 		calcOpticalFlowFarneback(u_f2,u_f1, u_flow, 0.5, 2, 3, 2, 15, 1.2, 0); //Give to GPU, possibly
 		u_f1.copyTo(u_f2);
-		
-		
-		
-		
 		flow_raw = u_flow.getMat(ACCESS_READ); //Tell GPU to give it back
 		
 		
@@ -235,8 +222,7 @@ int main(int argc, char** argv )
 		time_farneback += timediff();
 		
 		
-	if(framecount>100)
-	{
+
 		
 		
 		streamlines_mat.forEach<Pixel2>([&](Pixel2& pixel, const int position[]) -> void {
@@ -247,18 +233,21 @@ int main(int argc, char** argv )
 		split(streamlines_mat,splitarr);
 		magnitude(splitarr[0],splitarr[1],streamfield);
 		
+		//Compute streamline length
 		double lenmax;
 		minMaxLoc(streamfield,NULL,&lenmax,NULL,NULL);
 		streamfield.convertTo(streamoverlay_color,CV_8UC1,255/lenmax);
 		applyColorMap(streamoverlay_color, streamoverlay_color, COLORMAP_JET);
 		imshow("streamline displacement",streamoverlay_color);
 		
+		//Compute streamline displacement
 		double distmax;
 		minMaxLoc(streamlines_distance,NULL,&distmax,NULL,NULL);
 		streamlines_distance.convertTo(streamoverlay_color,CV_8UC1,255/distmax);
 		applyColorMap(streamoverlay_color, streamoverlay_color, COLORMAP_JET);
 		imshow("streamline total motion",streamoverlay_color);
 		
+		 //Compute ratio
 		divide(streamfield,streamlines_distance,streamoverlay_color);
 		double ratiomax;
 		minMaxLoc(streamoverlay_color,NULL,&ratiomax,NULL,NULL);
@@ -266,7 +255,10 @@ int main(int argc, char** argv )
 		applyColorMap(streamoverlay_color, streamoverlay_color, COLORMAP_JET);
 		imshow("streamline displacement/motion ratio",streamoverlay_color);
 		
-		Mat streamline_positions = Mat::zeros(YDIM, XDIM, CV_32FC1);
+
+
+		//This was originally intended to show density, but is currently just used to represent where individual streamlines in the field end up.
+		Mat streamline_density = Mat::zeros(Size(XDIM, YDIM), CV_32FC3);
 		
 		for (int y = 0; y < YDIM; y++) {
 			Pixel2* ptr = streamlines_mat.ptr<Pixel2>(y, 0);
@@ -274,39 +266,19 @@ int main(int argc, char** argv )
 			for (int x = 0 ; ptr != ptr_end; ++ptr, x++) {
 				int xind = (int) roundf(floor(ptr->x + x));
 				int yind = (int) roundf(floor(ptr->y + y));
-				if(xind < 1 || yind < 1 || xind + 2 > streamline_positions.cols || yind  + 2 > streamline_positions.rows)  //Verify array bounds
+				if(xind < 1 || yind < 1 || xind + 2 > streamline_density.cols || yind  + 2 > streamline_density.rows)  //Verify array bounds
 					{continue;}
 
-				float * density_ptr = streamline_positions.ptr<float>(yind,xind);
-				(*density_ptr) = 1;
+				Pixel3 * density_ptr = streamline_density.ptr<Pixel3>(yind,xind);
+				(*density_ptr) = Pixel3(1,1,1);
 				
 			}
 		}
-		imshow("streamline positions",streamline_positions);
-		video_streamlines_only.write(streamline_positions);
-		/*
-		double densitymax, densitymin;
-		minMaxLoc(streamline_density,&densitymin,&densitymax,NULL,NULL);
-		streamline_density.convertTo(streamoverlay_color,CV_8UC1,4*255/(densitymax-densitymin));
-		resize(streamoverlay_color,streamoverlay_color,Size(XDIM,YDIM),0,0,INTER_LINEAR);
-		applyColorMap(streamoverlay_color, streamoverlay_color, COLORMAP_JET);
-		imshow("streamline density",streamoverlay_color);
-		
-		streamlines_density_history = streamlines_density_history + streamline_density;
-		minMaxLoc(streamlines_density_history,&densitymin,&densitymax,NULL,NULL);
-		subtract(streamlines_density_history,densitymin,streamoverlay_color);
-		streamoverlay_color.convertTo(streamoverlay_color,CV_8UC1,4*255/(densitymax-densitymin));
-		resize(streamoverlay_color,streamoverlay_color,Size(XDIM,YDIM),0,0,INTER_LINEAR);
-		applyColorMap(streamoverlay_color, streamoverlay_color, COLORMAP_JET);
-		imshow("streamline density (history)",streamoverlay_color);
-		*/
-		//Heatmap of positions
-		//Heatmap of traffic
-		//Requires a new function: takes a streamline mat and a heatmap mat
-		//For each pixel, increment the position. No, you can't do this with atomics
+		imshow("streamline positions",streamline_density);
+		video_streamlines_only.write(streamline_density);
 		
 		
-		//Discrete streamlines here
+		//Discrete streamlines handled
 		for(int s = 0; s < streamlines; s++){
 			streamline(streampt+s, Scalar(framecount*(255.0/totalframes)), current, streamoverlay, 2, 1,UPPER,prop_above_upper);
 		}
@@ -319,21 +291,12 @@ int main(int argc, char** argv )
 		video_streamlines.write(streamout);
 		time_stream+= timediff();
 		
-	}
+	
 	
 		
 		
 		
 
-		/*
-		pMOG2->apply(subframe, fgMaskMOG2);
-		imshow("fg",fgMaskMOG2);
-		Mat foo;
-		pMOG2->getBackgroundImage(foo);
-		imshow("background",foo);
-		//add(fgMaskMOG2,MOG_accumulator,MOG_accumulator,noArray(),MOG_accumulator.depth());
-		//time_mog += timediff();
-		*/
 		
 		//convert the x,y current flow field into angle,magnitude form.
 		//Specifically, angle,magnitude,magnitude, as it is later displayed with HSV
@@ -412,20 +375,9 @@ int main(int argc, char** argv )
 		display_histogram(hist2d,histsum2d,UPPER2d, UPPER,prop_above_upper);
 		
 
-		Mat accumulator2 = Mat::zeros(YDIM, XDIM, CV_32FC3);
-		Mat waterclass = Mat::zeros(YDIM, XDIM, CV_32FC3);
+		Mat accumulator2 = Mat::zeros(Size(XDIM, YDIM), CV_32FC3);
+		Mat waterclass = Mat::zeros(Size(XDIM, YDIM), CV_32FC3);
 
-		/*
-		Mat whitewater = Mat::zeros(YDIM,XDIM, CV_8UC1);
-		
-		subframe.forEach<Pixelc>([&](Pixelc& pixel, const int position[]) -> void {
-			uchar* wtptr = whitewater.ptr<uchar>(position[0],position[1]);
-			if(pixel.x > 150 && pixel.y > 150 && pixel.z > 150){ 
-				*wtptr = 255;
-			}
-	});
-		imshow("white pixels",whitewater);
-		*/
 
 		//Classify
 		current.forEach<Pixel3>([&](Pixel3& pixel, const int position[]) -> void {
@@ -471,8 +423,8 @@ int main(int argc, char** argv )
 		}
 		
 
-		Mat out = Mat::zeros(YDIM, XDIM, CV_32FC3);
-		Mat outmask = Mat::zeros(YDIM, XDIM, CV_8UC1);
+		Mat out = Mat::zeros(Size(XDIM, YDIM), CV_32FC3);
+		Mat outmask = Mat::zeros(Size(XDIM, YDIM), CV_8UC1);
 		
 		
 		//Visualize accumulation buffer. Thresholds need tweaking
@@ -554,7 +506,7 @@ int main(int argc, char** argv )
 		*/
 		
 		
-		Mat overlay = Mat::zeros(YDIM, XDIM, CV_8UC3);
+		Mat overlay = Mat::zeros(Size(XDIM, YDIM), CV_8UC3);
 		
 		//Find green surrounded by red in accumulator image, create overlay
 #define localwin 20
