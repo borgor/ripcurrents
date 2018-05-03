@@ -11,6 +11,6 @@ $make
 
 
 RipCurrents_main is the main version
-RipCurrents_android is the android fork (tends to be very slow and not fully featured).
+RipCurrents_android is the android fork (barely functional, outdated).
 )
 
