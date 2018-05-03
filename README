@@ -2,13 +2,15 @@ Rip Current Visualization by optical flow.
 A continuation of work by Shweta Philip and Alex Pang of UCSC:
 	https://github.com/AryaPhilip/RipCurrentDetectionAndVisualization
 
+Requirements: a C++ compiler, opencv 3.4.1 (not tested with other versions), CMake (unlessyou want to figure out how to link opencv libraries yourself).
+
+Compilation instructions: For the main branch, in RipCurrents_main
+$cmake .
+$make
+
+
 
 RipCurrents_main is the main version
 RipCurrents_android is the android fork (tends to be very slow and not fully featured).
 )
-
-TODO: describe build/use
-
-
-TODO: update comments, choose sample videos.
 
