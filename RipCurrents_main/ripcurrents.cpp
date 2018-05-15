@@ -54,6 +54,7 @@ int main(int argc, char** argv )
 {
 	
 	if(argc <2){printf("No video specified\n");wheel(); exit(0); }
+	// Turn on OpenCL
 	ocl::setUseOpenCL(true);
 	
 	//Video I/O
@@ -74,7 +75,7 @@ int main(int argc, char** argv )
 		}
 	}
 	
-	
+	// Set up for output videos
 	VideoWriter video_streamlines_only("video_streamlines.avi",CV_FOURCC('M','J','P','G'), 10, cv::Size(XDIM,YDIM),true);
 	if (!video_streamlines_only.isOpened())
 	{
