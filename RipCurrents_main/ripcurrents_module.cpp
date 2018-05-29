@@ -91,8 +91,9 @@ void create_histogram(Mat current, int hist[HIST_BINS], int& histsum, int hist2d
 	//Figure out what "slow" or "fast" is
 	for (int y = 0; y < YDIM; y++) {
 		Pixel3* ptr = current.ptr<Pixel3>(y, 0);
-		const Pixel3* ptr_end = ptr + (int)XDIM;
-		for (int x = 0 ; ptr != ptr_end; ++ptr, x++) {
+		//const Pixel3* ptr_end = ptr + (int)XDIM;
+		const Pixel3* ptr_end = current.ptr<Pixel3>(y+1, 0);
+		for (; ptr < ptr_end; ++ptr) {
 			int bin = (ptr->y) * HIST_RESOLUTION;
 			int angle = (ptr->x * HIST_DIRECTIONS)/ 360; //order matters, truncation
 			if(bin < HIST_BINS &&  bin >= 0){
