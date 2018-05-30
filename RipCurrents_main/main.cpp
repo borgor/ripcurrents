@@ -2,11 +2,36 @@
 #include <stdio.h>
 #include <sys/time.h>
 #include <string>
+#include <math.h>
 
 #include <opencv2/opencv.hpp>
 #include <opencv2/core/ocl.hpp>  //Actually opencv3.2, in spite of the name
+#include <opencv2/optflow/motempl.hpp>
 
 #include "ripcurrents.hpp"
+
+String type2str(int type) {
+  String r;
+
+  uchar depth = type & CV_MAT_DEPTH_MASK;
+  uchar chans = 1 + (type >> CV_CN_SHIFT);
+
+  switch ( depth ) {
+    case CV_8U:  r = "8U"; break;
+    case CV_8S:  r = "8S"; break;
+    case CV_16U: r = "16U"; break;
+    case CV_16S: r = "16S"; break;
+    case CV_32S: r = "32S"; break;
+    case CV_32F: r = "32F"; break;
+    case CV_64F: r = "64F"; break;
+    default:     r = "User"; break;
+  }
+
+  r += "C";
+  r += (chans+'0');
+
+  return r;
+}
 
 
 int main(int argc, char** argv )
@@ -72,6 +97,7 @@ int main(int argc, char** argv )
 	Mat resized;
 	Mat flow_raw;
 	Mat flow;
+	Mat current_prev;
 
 	//OpenCL/GPU matrices
 	UMat u_flow;
@@ -166,38 +192,58 @@ int main(int argc, char** argv )
 		f1.copyTo(u_f1);
 		//Parameters are tweakable
 		calcOpticalFlowFarneback(u_f2,u_f1, u_flow, 0.5, 2, 3, 2, 15, 1.2, OPTFLOW_FARNEBACK_GAUSSIAN); //Give to GPU, possibly
-		u_f1.copyTo(u_f2);
 		flow_raw = u_flow.getMat(ACCESS_READ); //Tell GPU to give it back
 		Mat current = flow_raw;
 
-		double sum_x=0, sum_y=0;
-		int cx=0, cy=0;
-		for ( int row = (int)(current.rows * 0.9); row < current.rows; row++ ){
-			Pixel2* ptr = current.ptr<Pixel2>(row, (int)(current.cols * 0.9));
-			cy++;
-			cx=0;
-			for ( int col = (int)(current.cols * 0.9); col < current.cols; col++){
-				sum_x += ptr->x;
-				sum_y += ptr->y;
-				cx++;
-				ptr++;
+		// stabilize with corner tracking
+		//if(framecount > 2) stabilizer(current, current_prev);
+		//current.copyTo(current_prev);
+
+		Mat color_diff;
+		absdiff(u_f1, u_f2, color_diff);
+		Mat black_diff;
+		threshold(color_diff, black_diff, 30, 1, THRESH_BINARY);
+		clock_t proc_time = clock();
+		Mat motion_history = Mat::zeros(Size(XDIM, YDIM), CV_32FC1);
+		motempl::updateMotionHistory(black_diff, motion_history, proc_time, 1);
+		// min max normalize
+		double max, min;
+		minMaxLoc(motion_history, &min, &max);
+		motion_history = motion_history / max;
+		Mat mask, orientation;
+		motempl::calcMotionGradient(motion_history, mask, orientation, 0.25, 1, 3);
+		double angle_deg = motempl::calcGlobalOrientation(orientation, mask, motion_history, proc_time, 1);
+		printf("%lf\n", angle_deg);
+		Mat hist_color = (motion_history ) * 255;
+		Mat hist_gray;
+		hist_color.convertTo(hist_color, CV_8U);
+		cvtColor(hist_color,hist_gray,COLOR_GRAY2BGR);
+
+		// draw center point
+		circle(hist_gray, Point((int)(XDIM / 2), (int)(YDIM / 2)), 3, Scalar(0, 215, 255), CV_FILLED, 16, 0);
+
+		// draw line
+		double angle_rad = angle_deg * M_PI / 180;
+		arrowedLine(hist_gray, Point((int)(XDIM / 2), (int)(YDIM / 2)), 
+			Point((int)(XDIM / 2 + cos(angle_rad) * 10), (int)(YDIM / 2 + sin(angle_rad) * 50)),
+			Scalar(0, 215, 255), 2, 16, 0, 0.2);
+
+		// draw dots
+		for ( int row = 0; row < YDIM; row += 30 ){
+			for ( int col = 0; col < XDIM; col += 30 ){
+				circle(hist_gray, Point(col, row), 1, Scalar(0, 215, 0), CV_FILLED, 16, 0);
+				angle_deg = orientation.at<double>(row, col);
+				if ( angle_deg > 0 ) angle_rad = angle_deg * M_PI / 180;
+				arrowedLine(hist_gray, Point(col, row), 
+					Point((int)(col + cos(angle_rad) * 10), (int)(row + sin(angle_rad) * 10)),
+					Scalar(0, 215, 0), 1, 16, 0, 0.2);
 			}
 		}
 
-		double mean_x = sum_x / cx;
-		double mean_y = sum_y / cy;
+		imshow("angle", hist_gray);
+		video_output.write(hist_gray);
 
-		printf("x %f, y %f \n", mean_x, mean_y);
-		
-		for ( int row = 0; row < current.rows; row++ ){
-			Pixel2* ptr = current.ptr<Pixel2>(row, 0);
-			for ( int col = 0; col < current.cols; col++){
-				if(ptr->x != 0) ptr->x -= mean_x * 0.2;
-				if(ptr->y != 0) ptr->y -= mean_y * 0.2;
-				ptr++;
-			}
-		}
-
+		u_f1.copyTo(u_f2);
 
 		//Simulate the movement of particles in the flow field.
 		streamlines_mat.forEach<Pixel2>([&](Pixel2& pixel, const int position[]) -> void {
@@ -211,7 +257,7 @@ int main(int argc, char** argv )
 		
 		// How far it moved
 		streamline_displacement(streamfield, streamoverlay_color);
-		imshow("streamline displacement",streamoverlay_color);
+		//imshow("streamline displacement",streamoverlay_color);
 		//video_output.write(streamoverlay_color);
 
 		// How far it has moved
@@ -236,7 +282,7 @@ int main(int argc, char** argv )
 		subframe.copyTo(streamout);
 		get_streamlines(streamout, streamoverlay_color, streamoverlay, streamlines, streampt, framecount, totalframes, current, UPPER, prop_above_upper);
 		imshow("streamlines",streamout);
-		video_output.write(streamout);
+		//video_output.write(streamout);
 
 		
 		

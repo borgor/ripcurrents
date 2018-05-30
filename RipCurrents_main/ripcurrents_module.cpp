@@ -273,6 +273,39 @@ void display_histogram(int hist2d[HIST_DIRECTIONS][HIST_BINS],int histsum2d[HIST
 
 }
 
+void stabilizer(Mat current, Mat current_prev){
+	double sum_x=0, sum_y=0;
+	int cx=0, cy=0;
+	int diff = 0;
+	for ( int row = (int)(current.rows * 0.9); row < current.rows; row++ ){
+		Pixel2* ptr = current.ptr<Pixel2>(row, (int)(current.cols * 0.9));
+		Pixel2* ptr2 = current_prev.ptr<Pixel2>(row, (int)(current_prev.cols * 0.9));
+		cy++;
+		cx=0;
+		for ( int col = (int)(current.cols * 0.9); col < current.cols; col++){
+			sum_x += (ptr->x - ptr2->x);
+			sum_y += (ptr->y - ptr2->y);
+			cx++;
+			ptr++;
+			ptr2++;
+		}
+	}
+
+	double mean_x = sum_x / cx;
+	double mean_y = sum_y / cy;
+
+	printf("x %f, y %f \n", mean_x, mean_y);
+	
+	for ( int row = 0; row < current.rows; row++ ){
+		Pixel2* ptr = current.ptr<Pixel2>(row, 0);
+		for ( int col = 0; col < current.cols; col++){
+			if(ptr->x != 0) ptr->x -= mean_x * 0.2;
+			if(ptr->y != 0) ptr->y -= mean_y * 0.2;
+			ptr++;
+		}
+	}
+}
+
 
 void streamline(Pixel2 * pt, cv::Scalar color, cv::Mat flow, cv::Mat overlay, float dt, int iterations, float UPPER, float prop_above_upper[HIST_DIRECTIONS]){
 	
