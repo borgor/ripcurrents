@@ -170,32 +170,31 @@ int main(int argc, char** argv )
 		flow_raw = u_flow.getMat(ACCESS_READ); //Tell GPU to give it back
 		Mat current = flow_raw;
 
-		int x, y;
 		double sum_x=0, sum_y=0;
 		int cx=0, cy=0;
-		for ( y = (int)(YDIM * 0.9); y < YDIM; y++ ){
-			Pixel3* ptr = current.ptr<Pixel3>(y, (int)(XDIM * 0.9));
-			const Pixel3* ptr_end = current.ptr<Pixel3>(y+1, 0);
+		for ( int row = (int)(current.rows * 0.9); row < current.rows; row++ ){
+			Pixel2* ptr = current.ptr<Pixel2>(row, (int)(current.cols * 0.9));
 			cy++;
 			cx=0;
-			for (; ptr < ptr_end; ++ptr){
+			for ( int col = (int)(current.cols * 0.9); col < current.cols; col++){
 				sum_x += ptr->x;
 				sum_y += ptr->y;
 				cx++;
+				ptr++;
 			}
 		}
 
 		double mean_x = sum_x / cx;
 		double mean_y = sum_y / cy;
 
-		//printf("x %f, y %f \n", mean_x, mean_y);
+		printf("x %f, y %f \n", mean_x, mean_y);
 		
-		for ( y = 0; y < YDIM; y++ ){
-			Pixel3* ptr = current.ptr<Pixel3>(y, 0);
-			const Pixel3* ptr_end = current.ptr<Pixel3>(y+1, 0);
-			for (; ptr < ptr_end; ++ptr){
-				//if(ptr->x != 0) ptr->x -= mean_x;
-				//if(ptr->y != 0) ptr->y -= mean_y;
+		for ( int row = 0; row < current.rows; row++ ){
+			Pixel2* ptr = current.ptr<Pixel2>(row, 0);
+			for ( int col = 0; col < current.cols; col++){
+				if(ptr->x != 0) ptr->x -= mean_x * 0.2;
+				if(ptr->y != 0) ptr->y -= mean_y * 0.2;
+				ptr++;
 			}
 		}
 
