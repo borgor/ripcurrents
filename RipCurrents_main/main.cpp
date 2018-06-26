@@ -170,6 +170,26 @@ int main(int argc, char** argv )
 	int k = -1;
 
 
+	std::vector<Mat>buffer;
+	for ( int i = 0; i < BUFFER_FRAME; i++ ) {
+		buffer.push_back(Mat::zeros(YDIM,XDIM,CV_32FC2));
+	}
+	int update_ith_buffer = 0;
+	Mat average = Mat::zeros(YDIM,XDIM,CV_32FC2);
+	Mat average_color = Mat::zeros(Size(XDIM, YDIM), CV_8UC3);
+
+	float max_displacement = 0.000001;
+	
+
+	// create 2d array for grid
+	double ** grid = new double*[GRID_COUNT];
+	for ( int i = 0; i < GRID_COUNT; i++ )
+		grid[i] = new double[GRID_COUNT];
+	
+	// number of rows and cols in each grid
+	int grid_col_num = (int)(XDIM/GRID_COUNT);
+	int grid_row_num = (int)(YDIM/GRID_COUNT);
+
 	timediff();
 	for( framecount = 1; true; framecount++){
 
@@ -195,60 +215,131 @@ int main(int argc, char** argv )
 		flow_raw = u_flow.getMat(ACCESS_READ); //Tell GPU to give it back
 		Mat current = flow_raw;
 
+		/*
 		// stabilize with corner tracking
-		//if(framecount > 2) stabilizer(current, current_prev);
-		//current.copyTo(current_prev);
+		if(framecount > 2) stabilizer(current, current_prev);
+		current.copyTo(current_prev);
+		*/
+		
 
-		Mat color_diff;
-		absdiff(u_f1, u_f2, color_diff);
-		Mat black_diff;
-		threshold(color_diff, black_diff, 30, 1, THRESH_BINARY);
-		clock_t proc_time = clock();
-		Mat motion_history = Mat::zeros(Size(XDIM, YDIM), CV_32FC1);
-		motempl::updateMotionHistory(black_diff, motion_history, proc_time, 1);
-		// min max normalize
-		double max, min;
-		minMaxLoc(motion_history, &min, &max);
-		motion_history = motion_history / max;
-		Mat mask, orientation;
-		motempl::calcMotionGradient(motion_history, mask, orientation, 0.25, 1, 3);
-		double angle_deg = motempl::calcGlobalOrientation(orientation, mask, motion_history, proc_time, 1);
-		printf("%lf\n", angle_deg);
-		Mat hist_color = (motion_history ) * 255;
-		Mat hist_gray;
-		hist_color.convertTo(hist_color, CV_8U);
-		cvtColor(hist_color,hist_gray,COLOR_GRAY2BGR);
-
-		// draw center point
-		circle(hist_gray, Point((int)(XDIM / 2), (int)(YDIM / 2)), 3, Scalar(0, 215, 255), CV_FILLED, 16, 0);
-
-		// draw line
-		double angle_rad = angle_deg * M_PI / 180;
-		arrowedLine(hist_gray, Point((int)(XDIM / 2), (int)(YDIM / 2)), 
-			Point((int)(XDIM / 2 + cos(angle_rad) * 10), (int)(YDIM / 2 + sin(angle_rad) * 50)),
-			Scalar(0, 215, 255), 2, 16, 0, 0.2);
-
-		// draw dots
-		for ( int row = 0; row < YDIM; row += 30 ){
-			for ( int col = 0; col < XDIM; col += 30 ){
-				circle(hist_gray, Point(col, row), 1, Scalar(0, 215, 0), CV_FILLED, 16, 0);
-				angle_deg = orientation.at<double>(row, col);
-				if ( angle_deg > 0 ) angle_rad = angle_deg * M_PI / 180;
-				arrowedLine(hist_gray, Point(col, row), 
-					Point((int)(col + cos(angle_rad) * 10), (int)(row + sin(angle_rad) * 10)),
-					Scalar(0, 215, 0), 1, 16, 0, 0.2);
-			}
-		}
-
+		
+		
+		// global orientation of entire image
+		/*Mat hist_gray;
+		globalOrientation(u_f1, u_f2, hist_gray);
 		imshow("angle", hist_gray);
 		video_output.write(hist_gray);
+		*/
+		
 
 		u_f1.copyTo(u_f2);
+
+		
 
 		//Simulate the movement of particles in the flow field.
 		streamlines_mat.forEach<Pixel2>([&](Pixel2& pixel, const int position[]) -> void {
 			streamline_field(&pixel, streamlines_distance.ptr<float>(position[0],position[1]), position[1],position[0], current, 2, 1,UPPER,prop_above_upper);
 		});
+
+
+		//average_vector();
+		// uppdate buffer range 0 <= x < BUFFER_FRAME
+		if ( update_ith_buffer >= BUFFER_FRAME ) update_ith_buffer -= BUFFER_FRAME;
+
+		// subtract old buffer data from average
+		average -= buffer[update_ith_buffer] / BUFFER_FRAME;
+		buffer[update_ith_buffer] = Mat::zeros(YDIM,XDIM,CV_32FC2);
+		// get new buffer
+		buffer[update_ith_buffer].forEach<Pixel2>([&](Pixel2& pixel, const int position[]) -> void{
+			get_delta(&pixel, streamlines_distance.ptr<float>(position[0],position[1]), position[1],position[0], current, 2, 1,UPPER,prop_above_upper);
+		});
+
+		// add new buffer to average
+		average += buffer[update_ith_buffer] / BUFFER_FRAME;
+
+		float global_theta = 0;
+		float global_magnitude = 0;
+
+		int grid_row = 1, grid_col = 1;
+
+		for ( int i = 0; i < GRID_COUNT; i++ ) {
+			for ( int j = 0; j < GRID_COUNT; j++ ) {
+				grid[i][j] = 0;
+			}
+		}
+
+		// store vector data of average
+		int co = 0;
+		for ( int row = 0; row < average.rows; row++ ) {
+			Pixel2* ptr = average.ptr<Pixel2>(row, 0);
+			Pixelc* ptr2 = average_color.ptr<Pixelc>(row, 0);
+
+			if ( row >= grid_row_num * grid_row)
+				grid_row++;
+			
+			grid_col = 1;
+
+			for ( int col = 0; col < average.cols; col++ ) {
+				float theta = atan2(ptr->y, ptr->x)*180/M_PI;	// find angle
+				theta += theta < 0 ? 360 : 0;	// enforce strict positive angle
+				
+				// store vector data
+				ptr2->x = theta / 2;
+				ptr2->y = 255;
+				ptr2->z = sqrt(ptr->x * ptr->x + ptr->y * ptr->y)*255/max_displacement;
+				if ( ptr2->z < 20 ) ptr2->z = 0;
+
+				// store the previous max to maxmin next frame
+				if ( sqrt(ptr->x * ptr->x + ptr->y * ptr->y) > max_displacement ) max_displacement = sqrt(ptr->x * ptr->x + ptr->y * ptr->y);
+
+				global_theta += ptr2->x * ptr2->z;
+				global_magnitude += ptr2->z;
+
+				if ( col >= grid_col_num * grid_col)
+					grid_col++;
+
+				// add the vector to the corresponding grid
+				grid[grid_row-1][grid_col-1] += theta;
+				if (grid_col == 5 && grid_row == 5){
+					co++;
+				}
+
+				ptr++;
+				ptr2++;
+			}
+		}
+
+		// draw global orientation arrow
+		circle(average_color, Point((int)(XDIM/2), (int)(YDIM/2)), 3, Scalar(0, 215, 255), CV_FILLED, 16, 0);
+		double global_angle_rad = global_theta * 2 / global_magnitude * M_PI / 180;
+		arrowedLine(average_color, Point((int)(XDIM / 2), (int)(YDIM / 2)), 
+			Point((int)(XDIM / 2 + cos(global_angle_rad) * 10), (int)(YDIM / 2 + sin(global_angle_rad) * 50)),
+			Scalar(0, 215, 255), 2, 16, 0, 0.2);
+
+		// show as hsv format
+		cvtColor(average_color, average_color, CV_HSV2BGR);
+
+		// draw arrows for each grid
+		for ( int row = 1; row < GRID_COUNT; row++ ){
+			for ( int col = 1; col < GRID_COUNT; col++ ){
+				double angle_deg = grid[row][col] / co;
+				double angle_rad = angle_deg  * M_PI / 180;
+				// find in-between angle
+				double angle_between = min(abs(global_angle_rad - angle_rad), 2*M_PI-abs(global_angle_rad - angle_rad));
+				if ( angle_between > M_PI * 0.6 ) {
+					circle(average_color, Point(col * grid_col_num, row * grid_row_num), 1, Scalar(0, 215, 0), CV_FILLED, 16, 0);
+					arrowedLine(average_color, Point(col * grid_col_num, row * grid_row_num), 
+						Point((int)(col * grid_col_num + cos(angle_rad) * 10), (int)(row * grid_row_num + sin(angle_rad) * 10)),
+						Scalar(0, 215, 0), 1, 16, 0, 0.4);
+				}
+			}
+		}
+
+
+		update_ith_buffer++;
+
+		imshow("average vector", average_color);
+		video_output.write(average_color);
 
 		
 		Mat streamfield;
@@ -305,8 +396,8 @@ int main(int argc, char** argv )
 		Mat accumulator2 = Mat::zeros(Size(XDIM, YDIM), CV_32FC3);
 		Mat waterclass = Mat::zeros(Size(XDIM, YDIM), CV_32FC3);
 
-		create_flow(current, waterclass, accumulator2, UPPER, MID, LOWER, UPPER2d);
-		cvtColor(current,current,CV_HSV2BGR);
+		//create_flow(current, waterclass, accumulator2, UPPER, MID, LOWER, UPPER2d);
+		//cvtColor(current,current,CV_HSV2BGR);
 		//imshow("flow",current);
 
 		
@@ -324,9 +415,14 @@ int main(int argc, char** argv )
 		//create_output(subframe, outmask);
 		//imshow("output",subframe);
 
-		// end with any key on window
+		// end with Esc key on any window
 		int c = waitKey(1);
-		if( c != -1) break;
+		if ( c == 27) break;
+
+		// stop and restart with any key
+		if ( c != -1 && c != 27 ) {
+			waitKey(0);
+		}
 	}
 
 	//Clean up

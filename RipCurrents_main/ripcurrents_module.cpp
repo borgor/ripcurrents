@@ -4,6 +4,7 @@
 
 #include <opencv2/opencv.hpp>
 #include <opencv2/core/ocl.hpp>  //Actually opencv3.2, in spite of the name
+#include <opencv2/optflow/motempl.hpp>
 
 #include "ripcurrents.hpp"
 
@@ -279,15 +280,13 @@ void stabilizer(Mat current, Mat current_prev){
 	int diff = 0;
 	for ( int row = (int)(current.rows * 0.9); row < current.rows; row++ ){
 		Pixel2* ptr = current.ptr<Pixel2>(row, (int)(current.cols * 0.9));
-		Pixel2* ptr2 = current_prev.ptr<Pixel2>(row, (int)(current_prev.cols * 0.9));
 		cy++;
 		cx=0;
 		for ( int col = (int)(current.cols * 0.9); col < current.cols; col++){
-			sum_x += (ptr->x - ptr2->x);
-			sum_y += (ptr->y - ptr2->y);
+			sum_x += ptr->x;
+			sum_y += ptr->y;
 			cx++;
 			ptr++;
-			ptr2++;
 		}
 	}
 
@@ -306,6 +305,47 @@ void stabilizer(Mat current, Mat current_prev){
 	}
 }
 
+void globalOrientation(UMat u_f1, UMat u_f2, Mat& hist_gray){
+	Mat color_diff;
+	absdiff(u_f1, u_f2, color_diff);
+	Mat black_diff;
+	threshold(color_diff, black_diff, 30, 1, THRESH_BINARY);
+	clock_t proc_time = clock();
+	Mat motion_history = Mat::zeros(Size(XDIM, YDIM), CV_32FC1);
+	motempl::updateMotionHistory(black_diff, motion_history, proc_time, 1);
+	// min max normalize
+	double max, min;
+	minMaxLoc(motion_history, &min, &max);
+	motion_history = motion_history / max;
+	Mat mask, orientation;
+	motempl::calcMotionGradient(motion_history, mask, orientation, 0.25, 1, 3);
+	double angle_deg = motempl::calcGlobalOrientation(orientation, mask, motion_history, proc_time, 1);
+	printf("%lf\n", angle_deg);
+	Mat hist_color = (motion_history ) * 255;
+	hist_color.convertTo(hist_color, CV_8U);
+	cvtColor(hist_color,hist_gray,COLOR_GRAY2BGR);
+
+	// draw center point
+	circle(hist_gray, Point((int)(XDIM / 2), (int)(YDIM / 2)), 3, Scalar(0, 215, 255), CV_FILLED, 16, 0);
+
+	// draw line
+	double angle_rad = angle_deg * M_PI / 180;
+	arrowedLine(hist_gray, Point((int)(XDIM / 2), (int)(YDIM / 2)), 
+		Point((int)(XDIM / 2 + cos(angle_rad) * 10), (int)(YDIM / 2 + sin(angle_rad) * 50)),
+		Scalar(0, 215, 255), 2, 16, 0, 0.2);
+
+	// draw dots
+	for ( int row = 0; row < YDIM; row += 30 ){
+		for ( int col = 0; col < XDIM; col += 30 ){
+			circle(hist_gray, Point(col, row), 1, Scalar(0, 215, 0), CV_FILLED, 16, 0);
+			angle_deg = orientation.at<double>(row, col);
+			if ( angle_deg > 0 ) angle_rad = angle_deg * M_PI / 180;
+			arrowedLine(hist_gray, Point(col, row), 
+				Point((int)(col + cos(angle_rad) * 10), (int)(row + sin(angle_rad) * 10)),
+				Scalar(0, 215, 0), 1, 16, 0, 0.4);
+		}
+	}
+}
 
 void streamline(Pixel2 * pt, cv::Scalar color, cv::Mat flow, cv::Mat overlay, float dt, int iterations, float UPPER, float prop_above_upper[HIST_DIRECTIONS]){
 	
@@ -389,6 +429,44 @@ void streamline_field(Pixel2 * pt, float* distancetraveled, int xoffset, int yof
 		
 		*pt = newpt;
 	}
+	
+	return;
+}
+
+void get_delta(Pixel2 * pt, float* distancetraveled, int xoffset, int yoffset, cv::Mat flow, float dt, int iterations, float UPPER, float prop_above_upper[HIST_DIRECTIONS]){
+	
+	float x = pt->x + xoffset;
+	float y = pt->y + yoffset;
+	
+	int xind = (int) floor(x);
+	int yind = (int) floor(y);
+	float xrem = x - xind;
+	float yrem = y - yind;
+	
+	if(xind < 1 || yind < 1 || xind + 2 > flow.cols || yind  + 2 > flow.rows)  //Verify array bounds
+	{
+		return;
+	}
+	
+	//Bilinear interpolation
+	Pixel2 delta =		(*flow.ptr<Pixel2>(yind,xind))		* (1-xrem)*(1-yrem) +
+	(*flow.ptr<Pixel2>(yind,xind+1))	* (xrem)*(1-yrem) +
+	(*flow.ptr<Pixel2>(yind+1,xind))	* (1-xrem)*(yrem) +
+	(*flow.ptr<Pixel2>(yind+1,xind+1))	* (xrem)*(yrem) ;
+	
+	
+	float theta = atan2(delta.y,delta.x)*180/M_PI;//find angle
+	theta += theta < 0 ? 360 : 0; //enforce strict positive angle
+	int direction = ((int)((theta * HIST_DIRECTIONS)/360));
+	//if(prop_above_upper[direction] > .05){return;}
+	
+	float r = sqrt(delta.x*delta.x + delta.y*delta.y);
+	if(r > UPPER){return;}
+	
+	Pixel2 newpt = *pt + delta*dt;
+	*distancetraveled = *distancetraveled + r;
+	
+	*pt = newpt;
 	
 	return;
 }
