@@ -170,21 +170,28 @@ int main(int argc, char** argv )
 	int k = -1;
 
 
+	// for average vector
 	std::vector<Mat>buffer;
 	for ( int i = 0; i < BUFFER_FRAME; i++ ) {
 		buffer.push_back(Mat::zeros(YDIM,XDIM,CV_32FC2));
 	}
 	int update_ith_buffer = 0;
-	Mat average = Mat::zeros(YDIM,XDIM,CV_32FC2);
-	Mat average_color = Mat::zeros(Size(XDIM, YDIM), CV_8UC3);
+	Mat average_vector = Mat::zeros(YDIM,XDIM,CV_32FC2);
+	Mat average_vector_color = Mat::zeros(Size(XDIM, YDIM), CV_8UC3);
 
 	float max_displacement = 0.000001;
-	
 
 	// create 2d array for grid
 	double ** grid = new double*[GRID_COUNT];
 	for ( int i = 0; i < GRID_COUNT; i++ )
 		grid[i] = new double[GRID_COUNT];
+
+	// for average hsv color
+	std::vector<Mat> buffer_hsv;
+	for ( int i = 0; i < BUFFER_FRAME; i++ ) {
+		buffer_hsv.push_back(Mat::zeros(YDIM,XDIM,CV_8UC3));
+	}
+	Mat average_hsv = Mat::zeros(YDIM, XDIM, CV_8UC3);
 
 	timediff();
 	for( framecount = 1; true; framecount++){
@@ -239,12 +246,17 @@ int main(int argc, char** argv )
 
 
 		//average_vector();
-		averageVector(buffer, current, update_ith_buffer, average, average_color, grid, max_displacement, UPPER);
+		averageVector(buffer, current, update_ith_buffer, average_vector, average_vector_color, grid, max_displacement, UPPER);
+
+		imshow("average vector", average_vector_color);
+		//video_output.write(average_vector_color);
+
+		// average hsv
+		averageHSV(subframe, buffer_hsv, update_ith_buffer, average_hsv);
+		imshow("average hsv", average_hsv);
+		video_output.write(average_hsv);
+
 		update_ith_buffer++;
-
-		imshow("average vector", average_color);
-		video_output.write(average_color);
-
 		
 		Mat streamfield;
 		split(streamlines_mat,splitarr);

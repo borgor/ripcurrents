@@ -39,6 +39,8 @@ void stabilizer(Mat current, Mat current_prev);
 
 void globalOrientation(UMat u_f1, UMat u_f2, Mat& hist_gray);
 
+void averageHSV(Mat& subframe, std::vector<Mat> buffer_hsv, int update_ith_buffer, Mat& average_hsv);
+
 void averageVector(std::vector<Mat> buffer, Mat& current, int update_ith_buffer, Mat& average, Mat& average_color, double** grid, float max_displacement, float UPPER);
 
 void create_flow(Mat current, Mat waterclass, Mat accumulator2, float UPPER, float MID, float LOWER, float UPPER2d[HIST_DIRECTIONS]);

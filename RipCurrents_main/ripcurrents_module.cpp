@@ -347,6 +347,25 @@ void globalOrientation(UMat u_f1, UMat u_f2, Mat& hist_gray){
 	}
 }
 
+// subframe - bgr image of current frame
+// buffer_hsv - store hsv format data of previous BUFFER_COUNT frames
+// update_ith_buffer - number of element in buffer array to update
+// average_hsv - average hsv of buffer_hsv
+void averageHSV(Mat& subframe, std::vector<Mat> buffer_hsv, int update_ith_buffer, Mat& average_hsv){
+	Mat hsv;
+	cvtColor(subframe, hsv, COLOR_BGR2HSV);
+	
+	// uppdate buffer range 0 <= x < BUFFER_FRAME
+	if ( update_ith_buffer >= BUFFER_FRAME ) update_ith_buffer -= BUFFER_FRAME;
+
+	// subtract old buffer data from average
+	average_hsv -= buffer_hsv[update_ith_buffer] / BUFFER_FRAME;
+	// get new buffer
+	buffer_hsv[update_ith_buffer] = subframe;
+	// add new buffer to average
+	average_hsv += buffer_hsv[update_ith_buffer] / BUFFER_FRAME;
+}
+
 // buffer - store previous BUFFER_COUNT frames
 // current - frame data
 // update_ith_buffer - number of element in buffer array to update
