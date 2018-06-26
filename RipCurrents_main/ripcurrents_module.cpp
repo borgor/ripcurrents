@@ -347,6 +347,112 @@ void globalOrientation(UMat u_f1, UMat u_f2, Mat& hist_gray){
 	}
 }
 
+// buffer - store previous BUFFER_COUNT frames
+// current - frame data
+// update_ith_buffer - number of element in buffer array to update
+// average - store the average vector data
+// average_color - convert the vector data to hsv format image
+// grid - average of average in small grid
+// max_displacement - store the max displacement of vector
+// UPPER - histogram data to get clear result
+void averageVector(std::vector<Mat> buffer, Mat& current, int update_ith_buffer, Mat& average, Mat& average_color, double** grid, float max_displacement, float UPPER) {
+	// number of rows and cols in each grid
+	int grid_col_num = (int)(XDIM/GRID_COUNT);
+	int grid_row_num = (int)(YDIM/GRID_COUNT);
+	
+	// uppdate buffer range 0 <= x < BUFFER_FRAME
+	if ( update_ith_buffer >= BUFFER_FRAME ) update_ith_buffer -= BUFFER_FRAME;
+
+	// subtract old buffer data from average
+	average -= buffer[update_ith_buffer] / BUFFER_FRAME;
+	buffer[update_ith_buffer] = Mat::zeros(YDIM,XDIM,CV_32FC2);
+	// get new buffer
+	buffer[update_ith_buffer].forEach<Pixel2>([&](Pixel2& pixel, const int position[]) -> void{
+		get_delta(&pixel, position[1],position[0], current, 2, UPPER);
+	});
+
+	// add new buffer to average
+	average += buffer[update_ith_buffer] / BUFFER_FRAME;
+
+	float global_theta = 0;
+	float global_magnitude = 0;
+
+	int grid_row = 1, grid_col = 1;
+
+	for ( int i = 0; i < GRID_COUNT; i++ ) {
+		for ( int j = 0; j < GRID_COUNT; j++ ) {
+			grid[i][j] = 0;
+		}
+	}
+
+	// store vector data of average
+	int co = 0;
+	for ( int row = 0; row < average.rows; row++ ) {
+		Pixel2* ptr = average.ptr<Pixel2>(row, 0);
+		Pixelc* ptr2 = average_color.ptr<Pixelc>(row, 0);
+
+		if ( row >= grid_row_num * grid_row)
+			grid_row++;
+		
+		grid_col = 1;
+
+		for ( int col = 0; col < average.cols; col++ ) {
+			float theta = atan2(ptr->y, ptr->x)*180/M_PI;	// find angle
+			theta += theta < 0 ? 360 : 0;	// enforce strict positive angle
+			
+			// store vector data
+			ptr2->x = theta / 2;
+			ptr2->y = 255;
+			ptr2->z = sqrt(ptr->x * ptr->x + ptr->y * ptr->y)*255/max_displacement;
+			if ( ptr2->z < 20 ) ptr2->z = 0;
+
+			// store the previous max to maxmin next frame
+			if ( sqrt(ptr->x * ptr->x + ptr->y * ptr->y) > max_displacement ) max_displacement = sqrt(ptr->x * ptr->x + ptr->y * ptr->y);
+
+			global_theta += ptr2->x * ptr2->z;
+			global_magnitude += ptr2->z;
+
+			if ( col >= grid_col_num * grid_col)
+				grid_col++;
+
+			// add the vector to the corresponding grid
+			grid[grid_row-1][grid_col-1] += theta;
+			if (grid_col == 5 && grid_row == 5){
+				co++;
+			}
+
+			ptr++;
+			ptr2++;
+		}
+	}
+
+	// draw global orientation arrow
+	circle(average_color, Point((int)(XDIM/2), (int)(YDIM/2)), 3, Scalar(0, 215, 255), CV_FILLED, 16, 0);
+	double global_angle_rad = global_theta * 2 / global_magnitude * M_PI / 180;
+	arrowedLine(average_color, Point((int)(XDIM / 2), (int)(YDIM / 2)), 
+		Point((int)(XDIM / 2 + cos(global_angle_rad) * 10), (int)(YDIM / 2 + sin(global_angle_rad) * 50)),
+		Scalar(0, 215, 255), 2, 16, 0, 0.2);
+
+	// show as hsv format
+	cvtColor(average_color, average_color, CV_HSV2BGR);
+
+	// draw arrows for each grid
+	for ( int row = 1; row < GRID_COUNT; row++ ){
+		for ( int col = 1; col < GRID_COUNT; col++ ){
+			double angle_deg = grid[row][col] / co;
+			double angle_rad = angle_deg  * M_PI / 180;
+			// find in-between angle
+			double angle_between = min(abs(global_angle_rad - angle_rad), 2*M_PI-abs(global_angle_rad - angle_rad));
+			if ( angle_between > M_PI * 0.6 ) {
+				circle(average_color, Point(col * grid_col_num, row * grid_row_num), 1, Scalar(0, 215, 0), CV_FILLED, 16, 0);
+				arrowedLine(average_color, Point(col * grid_col_num, row * grid_row_num), 
+					Point((int)(col * grid_col_num + cos(angle_rad) * 10), (int)(row * grid_row_num + sin(angle_rad) * 10)),
+					Scalar(0, 215, 0), 1, 16, 0, 0.4);
+			}
+		}
+	}
+}
+
 void streamline(Pixel2 * pt, cv::Scalar color, cv::Mat flow, cv::Mat overlay, float dt, int iterations, float UPPER, float prop_above_upper[HIST_DIRECTIONS]){
 	
 	
@@ -433,7 +539,7 @@ void streamline_field(Pixel2 * pt, float* distancetraveled, int xoffset, int yof
 	return;
 }
 
-void get_delta(Pixel2 * pt, float* distancetraveled, int xoffset, int yoffset, cv::Mat flow, float dt, int iterations, float UPPER, float prop_above_upper[HIST_DIRECTIONS]){
+void get_delta(Pixel2 * pt, int xoffset, int yoffset, cv::Mat flow, float dt, float UPPER){
 	
 	float x = pt->x + xoffset;
 	float y = pt->y + yoffset;
@@ -454,17 +560,10 @@ void get_delta(Pixel2 * pt, float* distancetraveled, int xoffset, int yoffset, c
 	(*flow.ptr<Pixel2>(yind+1,xind))	* (1-xrem)*(yrem) +
 	(*flow.ptr<Pixel2>(yind+1,xind+1))	* (xrem)*(yrem) ;
 	
-	
-	float theta = atan2(delta.y,delta.x)*180/M_PI;//find angle
-	theta += theta < 0 ? 360 : 0; //enforce strict positive angle
-	int direction = ((int)((theta * HIST_DIRECTIONS)/360));
-	//if(prop_above_upper[direction] > .05){return;}
-	
 	float r = sqrt(delta.x*delta.x + delta.y*delta.y);
 	if(r > UPPER){return;}
 	
 	Pixel2 newpt = *pt + delta*dt;
-	*distancetraveled = *distancetraveled + r;
 	
 	*pt = newpt;
 	

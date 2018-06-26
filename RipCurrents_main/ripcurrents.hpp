@@ -39,7 +39,7 @@ void stabilizer(Mat current, Mat current_prev);
 
 void globalOrientation(UMat u_f1, UMat u_f2, Mat& hist_gray);
 
-void averageVector(std::vector<Mat> buffer, Mat& current, int update_ith_buffer, Mat& average, Mat& average_color, double** grid, float max_displacement);
+void averageVector(std::vector<Mat> buffer, Mat& current, int update_ith_buffer, Mat& average, Mat& average_color, double** grid, float max_displacement, float UPPER);
 
 void create_flow(Mat current, Mat waterclass, Mat accumulator2, float UPPER, float MID, float LOWER, float UPPER2d[HIST_DIRECTIONS]);
 
@@ -49,6 +49,6 @@ void create_edges(Mat& outmask);
 
 void create_output(Mat& subframe, Mat outmask);
 
-void get_delta(Pixel2 * pt, float* distancetraveled, int xoffset, int yoffset, cv::Mat flow, float dt, int iterations, float UPPER, float prop_above_upper[HIST_DIRECTIONS]);
-//void get_delta(Pixel2 * pt, int xoffset, int yoffset, cv::Mat flow, float dt);
+void get_delta(Pixel2 * pt, int xoffset, int yoffset, cv::Mat flow, float dt, float UPPER);
+
 #endif
