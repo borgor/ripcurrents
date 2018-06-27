@@ -354,9 +354,6 @@ void globalOrientation(UMat u_f1, UMat u_f2, Mat& hist_gray){
 void averageHSV(Mat& subframe, std::vector<Mat> buffer_hsv, int update_ith_buffer, Mat& average_hsv){
 	Mat hsv;
 	cvtColor(subframe, hsv, COLOR_BGR2HSV);
-	
-	// uppdate buffer range 0 <= x < BUFFER_FRAME
-	if ( update_ith_buffer >= BUFFER_FRAME ) update_ith_buffer -= BUFFER_FRAME;
 
 	// subtract old buffer data from average
 	average_hsv -= buffer_hsv[update_ith_buffer] / BUFFER_FRAME;
@@ -379,9 +376,6 @@ void averageVector(std::vector<Mat> buffer, Mat& current, int update_ith_buffer,
 	int grid_col_num = (int)(XDIM/GRID_COUNT);
 	int grid_row_num = (int)(YDIM/GRID_COUNT);
 	
-	// uppdate buffer range 0 <= x < BUFFER_FRAME
-	if ( update_ith_buffer >= BUFFER_FRAME ) update_ith_buffer -= BUFFER_FRAME;
-
 	// subtract old buffer data from average
 	average -= buffer[update_ith_buffer] / BUFFER_FRAME;
 	buffer[update_ith_buffer] = Mat::zeros(YDIM,XDIM,CV_32FC2);
@@ -462,7 +456,7 @@ void averageVector(std::vector<Mat> buffer, Mat& current, int update_ith_buffer,
 			double angle_rad = angle_deg  * M_PI / 180;
 			// find in-between angle
 			double angle_between = min(abs(global_angle_rad - angle_rad), 2*M_PI-abs(global_angle_rad - angle_rad));
-			if ( angle_between > M_PI * 0.6 ) {
+			if ( angle_between > M_PI * 0.5 ) {
 				circle(average_color, Point(col * grid_col_num, row * grid_row_num), 1, Scalar(0, 215, 0), CV_FILLED, 16, 0);
 				arrowedLine(average_color, Point(col * grid_col_num, row * grid_row_num), 
 					Point((int)(col * grid_col_num + cos(angle_rad) * 10), (int)(row * grid_row_num + sin(angle_rad) * 10)),

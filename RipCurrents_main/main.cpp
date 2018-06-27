@@ -244,6 +244,8 @@ int main(int argc, char** argv )
 			streamline_field(&pixel, streamlines_distance.ptr<float>(position[0],position[1]), position[1],position[0], current, 2, 1,UPPER,prop_above_upper);
 		});
 
+		// uppdate buffer range 0 <= x < BUFFER_FRAME
+		if ( update_ith_buffer >= BUFFER_FRAME ) update_ith_buffer = 0;
 
 		//average_vector();
 		averageVector(buffer, current, update_ith_buffer, average_vector, average_vector_color, grid, max_displacement, UPPER);
@@ -254,7 +256,7 @@ int main(int argc, char** argv )
 		// average hsv
 		averageHSV(subframe, buffer_hsv, update_ith_buffer, average_hsv);
 		imshow("average hsv", average_hsv);
-		video_output.write(average_hsv);
+		//video_output.write(average_hsv);
 
 		update_ith_buffer++;
 		
