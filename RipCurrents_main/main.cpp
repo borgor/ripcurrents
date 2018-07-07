@@ -66,7 +66,9 @@ int main(int argc, char** argv )
 	
 	// Set up for output videos
 	
-	VideoWriter video_output( video_name + ".mov",CV_FOURCC('M','J','P','G'), 10, cv::Size(XDIM,YDIM),true);
+	VideoWriter video_output( video_name + "0.mp4",CV_FOURCC('X','2','6','4'), 30, cv::Size(XDIM,YDIM),true);
+	VideoWriter video_output1( video_name + "1.mp4",CV_FOURCC('X','2','6','4'), 30, cv::Size(XDIM,YDIM),true);
+	VideoWriter video_output2( video_name + "2.mp4",CV_FOURCC('X','2','6','4'), 30, cv::Size(XDIM,YDIM),true);
 	
 	if (!video_output.isOpened())
 	{
@@ -251,12 +253,12 @@ int main(int argc, char** argv )
 		averageVector(buffer, current, update_ith_buffer, average_vector, average_vector_color, grid, max_displacement, UPPER);
 
 		imshow("average vector", average_vector_color);
-		//video_output.write(average_vector_color);
+		video_output1.write(average_vector_color);
 
 		// average hsv
 		averageHSV(subframe, buffer_hsv, update_ith_buffer, average_hsv);
 		imshow("average hsv", average_hsv);
-		//video_output.write(average_hsv);
+		video_output2.write(average_hsv);
 
 		update_ith_buffer++;
 		
@@ -348,6 +350,8 @@ int main(int argc, char** argv )
 	//waitKey(0);
 	video.release();
 	video_output.release();
+	video_output1.release();
+	video_output2.release();
 
 	// closed all windows
 	destroyAllWindows();

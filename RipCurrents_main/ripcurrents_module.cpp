@@ -353,7 +353,7 @@ void globalOrientation(UMat u_f1, UMat u_f2, Mat& hist_gray){
 // average_hsv - average hsv of buffer_hsv
 void averageHSV(Mat& subframe, std::vector<Mat> buffer_hsv, int update_ith_buffer, Mat& average_hsv){
 	Mat hsv;
-	cvtColor(subframe, hsv, COLOR_BGR2HSV);
+	//cvtColor(subframe, hsv, COLOR_HSV2BGR);
 
 	// subtract old buffer data from average
 	average_hsv -= buffer_hsv[update_ith_buffer] / BUFFER_FRAME;
