@@ -356,11 +356,12 @@ void averageHSV(Mat& subframe, std::vector<Mat> buffer_hsv, int update_ith_buffe
 	//cvtColor(subframe, hsv, COLOR_HSV2BGR);
 
 	// subtract old buffer data from average
-	average_hsv -= buffer_hsv[update_ith_buffer] / BUFFER_FRAME;
+	average_hsv -= buffer_hsv[update_ith_buffer];
+	
 	// get new buffer
-	buffer_hsv[update_ith_buffer] = subframe;
+	buffer_hsv[update_ith_buffer] = subframe / BUFFER_FRAME;
 	// add new buffer to average
-	average_hsv += buffer_hsv[update_ith_buffer] / BUFFER_FRAME;
+	average_hsv += buffer_hsv[update_ith_buffer];
 }
 
 // buffer - store previous BUFFER_COUNT frames
