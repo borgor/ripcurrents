@@ -8,9 +8,9 @@
 #define HIST_DIRECTIONS 36 // Number of 2d histogram directions
 #define HIST_RESOLUTION 20
 
-#define BUFFER_FRAME 100 // Number of buffered frames
+#define BUFFER_FRAME 300 // Number of buffered frames
 
-#define GRID_COUNT 15 // number of arrows per row and col
+#define GRID_COUNT 30 // number of arrows per row and col
 
 using namespace cv;
 

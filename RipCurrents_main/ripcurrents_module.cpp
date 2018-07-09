@@ -357,7 +357,7 @@ void averageHSV(Mat& subframe, std::vector<Mat> buffer_hsv, int update_ith_buffe
 
 	// subtract old buffer data from average
 	average_hsv -= buffer_hsv[update_ith_buffer];
-	
+
 	// get new buffer
 	buffer_hsv[update_ith_buffer] = subframe / BUFFER_FRAME;
 	// add new buffer to average
@@ -418,7 +418,7 @@ void averageVector(std::vector<Mat> buffer, Mat& current, int update_ith_buffer,
 			ptr2->x = theta / 2;
 			ptr2->y = 255;
 			ptr2->z = sqrt(ptr->x * ptr->x + ptr->y * ptr->y)*255/max_displacement;
-			if ( ptr2->z < 20 ) ptr2->z = 0;
+			//if ( ptr2->z < 30 ) ptr2->z = 0;
 
 			// store the previous max to maxmin next frame
 			if ( sqrt(ptr->x * ptr->x + ptr->y * ptr->y) > max_displacement ) max_displacement = sqrt(ptr->x * ptr->x + ptr->y * ptr->y);
@@ -456,13 +456,18 @@ void averageVector(std::vector<Mat> buffer, Mat& current, int update_ith_buffer,
 			double angle_deg = grid[row][col] / co;
 			double angle_rad = angle_deg  * M_PI / 180;
 			// find in-between angle
-			double angle_between = min(abs(global_angle_rad - angle_rad), 2*M_PI-abs(global_angle_rad - angle_rad));
-			if ( angle_between > M_PI * 0.5 ) {
-				circle(average_color, Point(col * grid_col_num, row * grid_row_num), 1, Scalar(0, 215, 0), CV_FILLED, 16, 0);
+			double angle_between = min(abs(angle_rad - global_angle_rad), 2*M_PI-abs(angle_rad - global_angle_rad));
+			if ( angle_between > M_PI * 0.7 ) {
+				circle(average_color, Point(col * grid_col_num, row * grid_row_num), 1, Scalar(0, 255, 0), CV_FILLED, 16, 0);
 				arrowedLine(average_color, Point(col * grid_col_num, row * grid_row_num), 
 					Point((int)(col * grid_col_num + cos(angle_rad) * 10), (int)(row * grid_row_num + sin(angle_rad) * 10)),
-					Scalar(0, 215, 0), 1, 16, 0, 0.4);
-			}
+					Scalar(0, 255, 0), 1, 16, 0, 0.4);
+			} /*else {
+				circle(average_color, Point(col * grid_col_num, row * grid_row_num), 1, Scalar(255, 0, 0), CV_FILLED, 16, 0);
+				arrowedLine(average_color, Point(col * grid_col_num, row * grid_row_num), 
+					Point((int)(col * grid_col_num + cos(angle_rad) * 10), (int)(row * grid_row_num + sin(angle_rad) * 10)),
+					Scalar(255, 0, 0), 1, 16, 0, 0.4);
+			}*/
 		}
 	}
 }

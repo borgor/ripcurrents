@@ -201,6 +201,8 @@ int main(int argc, char** argv )
 		
 
 		video.read(frame);
+
+		//if ( framecount % 4 == 0 ) continue;
 	
 		printf("Frames read: %d\n",framecount);
 
@@ -292,7 +294,7 @@ int main(int argc, char** argv )
 		subframe.copyTo(streamout);
 		get_streamlines(streamout, streamoverlay_color, streamoverlay, streamlines, streampt, framecount, totalframes, current, UPPER, prop_above_upper);
 		imshow("streamlines",streamout);
-		//video_output.write(streamout);
+		video_output.write(streamout);
 
 		
 		
@@ -342,6 +344,7 @@ int main(int argc, char** argv )
 		if ( c != -1 && c != 27 ) {
 			waitKey(0);
 		}
+		contin:;
 	}
 
 	//Clean up
