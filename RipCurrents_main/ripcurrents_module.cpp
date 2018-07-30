@@ -312,7 +312,7 @@ void stabilizer(Mat current, Mat current_prev){
  * @brief Find the global orientation
  * @param (UMat u_f1) resized and gray-scaled previous frame
  * @param (UMat u_f2) resized and gray-scaled current frame
- * @param (Mat& hist_gray) Return the image of the global orientation vector on current frame image
+ * @param (Mat& hist_gray) Return the image of the global orientation vector on the current frame image
  */
 void globalOrientation(UMat u_f1, UMat u_f2, Mat& hist_gray){
 	Mat color_diff;
