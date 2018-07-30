@@ -1,0 +1,3 @@
+/Users/moriissei/Desktop/UCSC/Research/RipCurrent/ripcurrents/RipCurrents_main/CMakeFiles/rebuild_cache.dir
+/Users/moriissei/Desktop/UCSC/Research/RipCurrent/ripcurrents/RipCurrents_main/CMakeFiles/edit_cache.dir
+/Users/moriissei/Desktop/UCSC/Research/RipCurrent/ripcurrents/RipCurrents_main/CMakeFiles/ripcurrents.dir

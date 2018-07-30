@@ -305,6 +305,15 @@ void stabilizer(Mat current, Mat current_prev){
 	}
 }
 
+
+/**
+ * @fn
+ * Find the average vector of every pixel with motempl::calcGlobalOrientation
+ * @brief Find the global orientation
+ * @param (UMat u_f1) resized and gray-scaled previous frame
+ * @param (UMat u_f2) resized and gray-scaled current frame
+ * @param (Mat& hist_gray) Return the image of the global orientation vector on current frame image
+ */
 void globalOrientation(UMat u_f1, UMat u_f2, Mat& hist_gray){
 	Mat color_diff;
 	absdiff(u_f1, u_f2, color_diff);
