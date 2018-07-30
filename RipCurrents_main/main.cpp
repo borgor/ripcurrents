@@ -3,6 +3,7 @@
 #include <sys/time.h>
 #include <string>
 #include <math.h>
+#include <vector>
 
 #include <opencv2/opencv.hpp>
 #include <opencv2/core/ocl.hpp>  //Actually opencv3.2, in spite of the name
@@ -195,6 +196,15 @@ int main(int argc, char** argv )
 	}
 	Mat average_hsv = Mat::zeros(YDIM, XDIM, CV_8UC3);
 
+	// track points for calcOpticalFlowPyrLK
+	std::vector<Point2f> points[2];
+	//points[1] = Point(100, 100);
+	std::vector<Point2f> features_prev, features_next;
+	//features_next.push_back( Point2f(100, 100) );
+	// return status values of calcOpticalFlowPyrLK
+	std::vector<uchar> status;
+	std::vector<float> err;
+
 	timediff();
 	for( framecount = 1; true; framecount++){
 
@@ -237,11 +247,17 @@ int main(int argc, char** argv )
 		imshow("angle", hist_gray);
 		video_output.write(hist_gray);
 		*/
-		
+
+		if (framecount > 1) {
+			goodFeaturesToTrack(u_f2, features_prev, 10, 0.01, 10, Mat(), 3, 3, 0, 0.04);
+			printf("detected -> %d\n",features_prev.size());
+			calcOpticalFlowPyrLK(u_f1, u_f2, features_prev, features_next, status, err, Size(21,21), 3, TermCriteria(TermCriteria::COUNT+TermCriteria::EPS, 30, 0.01), 0, 1e-4 );
+			features_prev = features_next;
+
+			
+		}
 
 		u_f1.copyTo(u_f2);
-
-		
 
 		//Simulate the movement of particles in the flow field.
 		streamlines_mat.forEach<Pixel2>([&](Pixel2& pixel, const int position[]) -> void {

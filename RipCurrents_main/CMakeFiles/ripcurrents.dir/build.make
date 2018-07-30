@@ -60,15 +60,15 @@ include CMakeFiles/ripcurrents.dir/flags.make
 CMakeFiles/ripcurrents.dir/main.cpp.o: CMakeFiles/ripcurrents.dir/flags.make
 CMakeFiles/ripcurrents.dir/main.cpp.o: main.cpp
 	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green --progress-dir=/Users/moriissei/Desktop/UCSC/Research/RipCurrent/ripcurrents/RipCurrents_main/CMakeFiles --progress-num=$(CMAKE_PROGRESS_1) "Building CXX object CMakeFiles/ripcurrents.dir/main.cpp.o"
-	/Applications/XcodeGM.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/c++   $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -o CMakeFiles/ripcurrents.dir/main.cpp.o -c /Users/moriissei/Desktop/UCSC/Research/RipCurrent/ripcurrents/RipCurrents_main/main.cpp
+	/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/c++   $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -o CMakeFiles/ripcurrents.dir/main.cpp.o -c /Users/moriissei/Desktop/UCSC/Research/RipCurrent/ripcurrents/RipCurrents_main/main.cpp
 
 CMakeFiles/ripcurrents.dir/main.cpp.i: cmake_force
 	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green "Preprocessing CXX source to CMakeFiles/ripcurrents.dir/main.cpp.i"
-	/Applications/XcodeGM.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/c++  $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E /Users/moriissei/Desktop/UCSC/Research/RipCurrent/ripcurrents/RipCurrents_main/main.cpp > CMakeFiles/ripcurrents.dir/main.cpp.i
+	/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/c++  $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E /Users/moriissei/Desktop/UCSC/Research/RipCurrent/ripcurrents/RipCurrents_main/main.cpp > CMakeFiles/ripcurrents.dir/main.cpp.i
 
 CMakeFiles/ripcurrents.dir/main.cpp.s: cmake_force
 	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green "Compiling CXX source to assembly CMakeFiles/ripcurrents.dir/main.cpp.s"
-	/Applications/XcodeGM.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/c++  $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S /Users/moriissei/Desktop/UCSC/Research/RipCurrent/ripcurrents/RipCurrents_main/main.cpp -o CMakeFiles/ripcurrents.dir/main.cpp.s
+	/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/c++  $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S /Users/moriissei/Desktop/UCSC/Research/RipCurrent/ripcurrents/RipCurrents_main/main.cpp -o CMakeFiles/ripcurrents.dir/main.cpp.s
 
 CMakeFiles/ripcurrents.dir/main.cpp.o.requires:
 
@@ -84,15 +84,15 @@ CMakeFiles/ripcurrents.dir/main.cpp.o.provides.build: CMakeFiles/ripcurrents.dir
 CMakeFiles/ripcurrents.dir/ripcurrents_module.cpp.o: CMakeFiles/ripcurrents.dir/flags.make
 CMakeFiles/ripcurrents.dir/ripcurrents_module.cpp.o: ripcurrents_module.cpp
 	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green --progress-dir=/Users/moriissei/Desktop/UCSC/Research/RipCurrent/ripcurrents/RipCurrents_main/CMakeFiles --progress-num=$(CMAKE_PROGRESS_2) "Building CXX object CMakeFiles/ripcurrents.dir/ripcurrents_module.cpp.o"
-	/Applications/XcodeGM.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/c++   $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -o CMakeFiles/ripcurrents.dir/ripcurrents_module.cpp.o -c /Users/moriissei/Desktop/UCSC/Research/RipCurrent/ripcurrents/RipCurrents_main/ripcurrents_module.cpp
+	/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/c++   $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -o CMakeFiles/ripcurrents.dir/ripcurrents_module.cpp.o -c /Users/moriissei/Desktop/UCSC/Research/RipCurrent/ripcurrents/RipCurrents_main/ripcurrents_module.cpp
 
 CMakeFiles/ripcurrents.dir/ripcurrents_module.cpp.i: cmake_force
 	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green "Preprocessing CXX source to CMakeFiles/ripcurrents.dir/ripcurrents_module.cpp.i"
-	/Applications/XcodeGM.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/c++  $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E /Users/moriissei/Desktop/UCSC/Research/RipCurrent/ripcurrents/RipCurrents_main/ripcurrents_module.cpp > CMakeFiles/ripcurrents.dir/ripcurrents_module.cpp.i
+	/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/c++  $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E /Users/moriissei/Desktop/UCSC/Research/RipCurrent/ripcurrents/RipCurrents_main/ripcurrents_module.cpp > CMakeFiles/ripcurrents.dir/ripcurrents_module.cpp.i
 
 CMakeFiles/ripcurrents.dir/ripcurrents_module.cpp.s: cmake_force
 	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green "Compiling CXX source to assembly CMakeFiles/ripcurrents.dir/ripcurrents_module.cpp.s"
-	/Applications/XcodeGM.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/c++  $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S /Users/moriissei/Desktop/UCSC/Research/RipCurrent/ripcurrents/RipCurrents_main/ripcurrents_module.cpp -o CMakeFiles/ripcurrents.dir/ripcurrents_module.cpp.s
+	/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/c++  $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S /Users/moriissei/Desktop/UCSC/Research/RipCurrent/ripcurrents/RipCurrents_main/ripcurrents_module.cpp -o CMakeFiles/ripcurrents.dir/ripcurrents_module.cpp.s
 
 CMakeFiles/ripcurrents.dir/ripcurrents_module.cpp.o.requires:
 
