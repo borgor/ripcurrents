@@ -310,8 +310,8 @@ void stabilizer(Mat current, Mat current_prev){
  * @fn
  * Find the average vector of every pixel with motempl::calcGlobalOrientation
  * @brief Find the global orientation
- * @param (UMat u_f1) resized and gray-scaled previous frame
- * @param (UMat u_f2) resized and gray-scaled current frame
+ * @param (UMat u_f1) Resized and gray-scaled previous frame
+ * @param (UMat u_f2) Resized and gray-scaled current frame
  * @param (Mat& hist_gray) Return the image of the global orientation vector on the current frame image
  */
 void globalOrientation(UMat u_f1, UMat u_f2, Mat& hist_gray){
