@@ -249,12 +249,21 @@ int main(int argc, char** argv )
 		*/
 
 		if (framecount > 1) {
-			goodFeaturesToTrack(u_f2, features_prev, 10, 0.01, 10, Mat(), 3, 3, 0, 0.04);
-			printf("detected -> %d\n",features_prev.size());
+			goodFeaturesToTrack(u_f2, features_prev, 100, 0.01, 10, Mat(), 3, 3, 0, 0.04);
+			//printf("detected -> %d\n",features_prev[0].size());
 			calcOpticalFlowPyrLK(u_f1, u_f2, features_prev, features_next, status, err, Size(21,21), 3, TermCriteria(TermCriteria::COUNT+TermCriteria::EPS, 30, 0.01), 0, 1e-4 );
 			features_prev = features_next;
 
-			
+			Mat features;
+			subframe.copyTo(features);
+
+			printf("detected -> %f\n",features_next[0].x);
+
+			for (int i=0;i<features_next.size();i++)
+				circle(features,cvPoint(features_next[i].x,features_next[i].y),4,CV_RGB(100,0,0),-1,8,0);
+
+			imshow("features", features);
+
 		}
 
 		u_f1.copyTo(u_f2);
