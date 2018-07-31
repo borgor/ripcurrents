@@ -53,4 +53,6 @@ void create_output(Mat& subframe, Mat outmask);
 
 void get_delta(Pixel2 * pt, int xoffset, int yoffset, cv::Mat flow, float dt, float UPPER);
 
+void farnebackAndLkSpeedComparison ( UMat u_f1, UMat u_f2 );
+
 #endif

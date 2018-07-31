@@ -232,10 +232,7 @@ int main(int argc, char** argv )
 		//Move to GPU (if possible), compute flow, move back
 		f1.copyTo(u_f1);
 		//Parameters are tweakable
-		clock_t farne_start = clock();
 		calcOpticalFlowFarneback(u_f2,u_f1, u_flow, 0.5, 2, 3, 2, 15, 1.2, OPTFLOW_FARNEBACK_GAUSSIAN); //Give to GPU, possibly
-		clock_t farne_end = clock();
-		std::cout << "farne back " << farne_end - farne_start << "\n";
 		flow_raw = u_flow.getMat(ACCESS_READ); //Tell GPU to give it back
 		Mat current = flow_raw;
 
@@ -258,10 +255,7 @@ int main(int argc, char** argv )
 		if (framecount > 1) {
 			//goodFeaturesToTrack(u_f2, features_prev, 10, 0.01, 10, Mat(), 3, 3, 0, 0.04);
 			//printf("detected -> %f\n",features_prev[1].x);
-			clock_t lk_start = clock();
 			calcOpticalFlowPyrLK(u_f1, u_f2, features_prev, features_next, status, err, Size(21,21), 3, TermCriteria(TermCriteria::COUNT+TermCriteria::EPS, 30, 0.01), 0, 1e-4 );
-			clock_t lk_end = clock();
-			std::cout << "lk " << lk_end - lk_start << "\n";
 			//features_prev = features_next;
 
 			Mat features;
@@ -274,6 +268,8 @@ int main(int argc, char** argv )
 			imshow("features", features);
 
 		}
+
+		farnebackAndLkSpeedComparison(u_f1, u_f2);
 
 		u_f1.copyTo(u_f2);
 

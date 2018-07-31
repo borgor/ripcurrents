@@ -606,3 +606,36 @@ double timediff(){
 	gettimeofday(&oldtime,NULL);
 	return diff;
 }
+
+/**
+ * @fn
+ * Compare the run time of two types of optical flow algorithm: calcOpticalFlowFarneback and calcOpticalFlowPyrLK
+ * @param (UMat u_f1) UMat converted previous frame image
+ * @param (UMat u_f2) UMat converted current frame image
+ */
+void farnebackAndLkSpeedComparison ( UMat u_f1, UMat u_f2 ) {
+	UMat u_flow;
+
+	// track points for calcOpticalFlowPyrLK
+	std::vector<Point2f> features_prev, features_next;
+	for ( int y = 0; y < YDIM; y++ ) {
+		for ( int x = 0; x < XDIM; x++ ) {
+			features_prev.push_back(Point2f(x, y));
+		}
+	}
+	// return status values of calcOpticalFlowPyrLK
+	std::vector<uchar> status;
+	std::vector<float> err;
+
+	// Run Farneback
+	clock_t farne_start = clock();
+	calcOpticalFlowFarneback(u_f2,u_f1, u_flow, 0.5, 2, 3, 2, 15, 1.2, OPTFLOW_FARNEBACK_GAUSSIAN); //Give to GPU, possibly
+	clock_t farne_end = clock();
+
+	clock_t lk_start = clock();
+	calcOpticalFlowPyrLK(u_f1, u_f2, features_prev, features_next, status, err, Size(21,21), 3, TermCriteria(TermCriteria::COUNT+TermCriteria::EPS, 30, 0.01), 0, 1e-4 );
+	clock_t lk_end = clock();
+
+	std::cout << "farne back " << farne_end - farne_start << "\n";
+	std::cout << "lk " << lk_end - lk_start << "\n";
+}
