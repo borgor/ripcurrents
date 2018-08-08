@@ -1,6 +1,7 @@
 file(REMOVE_RECURSE
   "CMakeFiles/ripcurrents.dir/main.cpp.o"
   "CMakeFiles/ripcurrents.dir/ripcurrents_module.cpp.o"
+  "CMakeFiles/ripcurrents.dir/Streakline.cpp.o"
   "ripcurrents.pdb"
   "ripcurrents"
 )

@@ -123,6 +123,33 @@ ripcurrents/fast:
 	$(MAKE) -f CMakeFiles/ripcurrents.dir/build.make CMakeFiles/ripcurrents.dir/build
 .PHONY : ripcurrents/fast
 
+Streakline.o: Streakline.cpp.o
+
+.PHONY : Streakline.o
+
+# target to build an object file
+Streakline.cpp.o:
+	$(MAKE) -f CMakeFiles/ripcurrents.dir/build.make CMakeFiles/ripcurrents.dir/Streakline.cpp.o
+.PHONY : Streakline.cpp.o
+
+Streakline.i: Streakline.cpp.i
+
+.PHONY : Streakline.i
+
+# target to preprocess a source file
+Streakline.cpp.i:
+	$(MAKE) -f CMakeFiles/ripcurrents.dir/build.make CMakeFiles/ripcurrents.dir/Streakline.cpp.i
+.PHONY : Streakline.cpp.i
+
+Streakline.s: Streakline.cpp.s
+
+.PHONY : Streakline.s
+
+# target to generate assembly for a file
+Streakline.cpp.s:
+	$(MAKE) -f CMakeFiles/ripcurrents.dir/build.make CMakeFiles/ripcurrents.dir/Streakline.cpp.s
+.PHONY : Streakline.cpp.s
+
 main.o: main.cpp.o
 
 .PHONY : main.o
@@ -186,6 +213,9 @@ help:
 	@echo "... rebuild_cache"
 	@echo "... edit_cache"
 	@echo "... ripcurrents"
+	@echo "... Streakline.o"
+	@echo "... Streakline.i"
+	@echo "... Streakline.s"
 	@echo "... main.o"
 	@echo "... main.i"
 	@echo "... main.s"

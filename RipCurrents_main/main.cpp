@@ -11,6 +11,7 @@
 #include <opencv2/optflow/motempl.hpp>
 
 #include "ripcurrents.hpp"
+#include "Streakline.hpp"
 
 String type2str(int type) {
   String r;
