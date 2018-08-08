@@ -149,14 +149,14 @@ int main(int argc, char** argv )
 	Pixel2 streampt[MAX_STREAMLINES];
 	int streamlines = MAX_STREAMLINES/2;
 
-	/*for(int s = 0; s < streamlines; s++){
+	for(int s = 0; s < streamlines; s++){
 		streampt[s] = Pixel2(rand()%XDIM,rand()%YDIM);
-	}*/
-	for(int x = 0; x < 10; x++){
+	}
+	/*for(int x = 0; x < 10; x++){
 		for(int y = 0; y < 10; y++){
 			streampt[x * 10 + y] = Pixel2(XDIM * x / 10, YDIM * y / 10);
 		}
-	}
+	}*/
 	namedWindow("streamlines", WINDOW_AUTOSIZE );
 	
 	
@@ -229,42 +229,18 @@ int main(int argc, char** argv )
 		//Move to GPU (if possible), compute flow, move back
 		f1.copyTo(u_f1);
 		//Parameters are tweakable
-/*
 		calcOpticalFlowFarneback(u_f2,u_f1, u_flow, 0.5, 2, 3, 2, 15, 1.2, OPTFLOW_FARNEBACK_GAUSSIAN); //Give to GPU, possibly
 		flow_raw = u_flow.getMat(ACCESS_READ); //Tell GPU to give it back
 		Mat current = flow_raw;
-*/
 
-		/*
-		// stabilize with corner tracking
-		if(framecount > 2) stabilizer(current, current_prev);
-		current.copyTo(current_prev);
-		*/
-		
-
-		
-		
-		// global orientation of entire image
-		/*Mat hist_gray;
-		globalOrientation(u_f1, u_f2, hist_gray);
-		imshow("angle", hist_gray);
-		video_output.write(hist_gray);
-		*/
-
-		//if ( framecount == 1 ) goodFeaturesToTrack(u_f2, features_prev, 10, 0.01, 10, Mat(), 3, 3, 0, 0.04);
-
-		if (framecount > 20) {
-			flowRedPoints ( u_f1, u_f2, subframe, features_prev, features_next );
-		}
+		// if (framecount > 20) flowRedPoints ( u_f1, u_f2, subframe, features_prev, features_next );
 
 		u_f1.copyTo(u_f2);
 
 		//Simulate the movement of particles in the flow field.
-/*
 		streamlines_mat.forEach<Pixel2>([&](Pixel2& pixel, const int position[]) -> void {
 			streamline_field(&pixel, streamlines_distance.ptr<float>(position[0],position[1]), position[1],position[0], current, 2, 1,UPPER,prop_above_upper);
 		});
-*/
 
 		// uppdate buffer range 0 <= x < BUFFER_FRAME
 		if ( update_ith_buffer >= BUFFER_FRAME ) update_ith_buffer = 0;
@@ -312,30 +288,28 @@ int main(int argc, char** argv )
 		
 		//Discrete,drawable streamlines handled here
 		// creates a copy of current frame
-/*
 		Mat streamout;
 		subframe.copyTo(streamout);
 		get_streamlines(streamout, streamoverlay_color, streamoverlay, streamlines, streampt, framecount, totalframes, current, UPPER, prop_above_upper);
 		imshow("streamlines",streamout);
 		video_output.write(streamout);
-*/
 
 		
 		
 		//convert the x,y current flow field into angle,magnitude form.
 		//Specifically, angle,magnitude,magnitude, as it is later displayed with HSV
 		//This is more interesting to analyze
-/*
+
 		split(current,splitarr);
 		Mat combine[3];
 		cartToPolar(splitarr[0], splitarr[1], combine[2], combine[0],true);
 		combine[1] = combine[2];
 		merge(combine,3,current);
-*/
+
 
 		//Construct histograms to get thresholds
 		//Figure out what "slow" or "fast" is
-//		create_histogram(current,  hist, histsum, hist2d, histsum2d, UPPER, UPPER2d, prop_above_upper);
+		create_histogram(current,  hist, histsum, hist2d, histsum2d, UPPER, UPPER2d, prop_above_upper);
 		//display_histogram(hist2d,histsum2d,UPPER2d, UPPER,prop_above_upper);
 		
 		
