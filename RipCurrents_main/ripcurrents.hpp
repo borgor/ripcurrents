@@ -55,4 +55,6 @@ void get_delta(Pixel2 * pt, int xoffset, int yoffset, cv::Mat flow, float dt, fl
 
 void farnebackAndLkSpeedComparison ( UMat u_f1, UMat u_f2 );
 
+void flowRedPoints ( UMat u_f1, UMat u_f2, Mat subframe, std::vector<Point2f>& features_prev, std::vector<Point2f>& features_next );
+
 #endif

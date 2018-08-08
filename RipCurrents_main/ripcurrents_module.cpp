@@ -639,3 +639,31 @@ void farnebackAndLkSpeedComparison ( UMat u_f1, UMat u_f2 ) {
 	std::cout << "farne back " << farne_end - farne_start << "\n";
 	std::cout << "lk " << lk_end - lk_start << "\n";
 }
+
+/**
+ * @fn
+ * Let generated seed points flow
+ * @param (UMat u_f1) UMat converted previous frame image
+ * @param (UMat u_f2) UMat converted current frame image
+ * @param (Mat subframe) current frame raw image
+ * @param (std::vector<Point2f>& features_prev) input seed points
+ * @param (std::vector<Point2f>& features_next) output seed points
+ */
+void flowRedPoints ( UMat u_f1, UMat u_f2, Mat subframe, std::vector<Point2f>& features_prev, std::vector<Point2f>& features_next ) {
+
+	// return status values of calcOpticalFlowPyrLK
+	std::vector<uchar> status;
+	std::vector<float> err;
+	
+	calcOpticalFlowPyrLK(u_f1, u_f2, features_prev, features_next, status, err, Size(21,21), 3, TermCriteria(TermCriteria::COUNT+TermCriteria::EPS, 30, 0.1), 0, 1e-4 );
+	features_prev = features_next;
+
+	Mat features;
+	subframe.copyTo(features);
+
+	for ( int i = 0; i < features_next.size(); i++ ) {
+		circle(features,cvPoint(features_next[i].x,features_next[i].y),2,CV_RGB(100,0,0),-1,8,0);
+	}
+
+	imshow("features", features);
+}

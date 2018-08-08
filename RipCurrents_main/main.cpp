@@ -199,15 +199,12 @@ int main(int argc, char** argv )
 
 	// track points for calcOpticalFlowPyrLK
 	std::vector<Point2f> features_prev, features_next;
-	for ( int y = 0; y < YDIM; y++ ) {
-		for ( int x = 0; x < XDIM; x++ ) {
-			features_next.push_back(Point2f(x, y));
+	for ( int y = YDIM / 2 - 50; y < YDIM / 2 + 50; y+=10 ) {
+		for ( int x = XDIM / 2 -50 ; x < XDIM / 2 + 50; x+=10 ) {
+			//features_next.push_back(Point2f(x, y));
 			features_prev.push_back(Point2f(x, y));
 		}
 	}
-	// return status values of calcOpticalFlowPyrLK
-	std::vector<uchar> status;
-	std::vector<float> err;
 
 	timediff();
 	for( framecount = 1; true; framecount++){
@@ -232,9 +229,11 @@ int main(int argc, char** argv )
 		//Move to GPU (if possible), compute flow, move back
 		f1.copyTo(u_f1);
 		//Parameters are tweakable
+/*
 		calcOpticalFlowFarneback(u_f2,u_f1, u_flow, 0.5, 2, 3, 2, 15, 1.2, OPTFLOW_FARNEBACK_GAUSSIAN); //Give to GPU, possibly
 		flow_raw = u_flow.getMat(ACCESS_READ); //Tell GPU to give it back
 		Mat current = flow_raw;
+*/
 
 		/*
 		// stabilize with corner tracking
@@ -252,45 +251,38 @@ int main(int argc, char** argv )
 		video_output.write(hist_gray);
 		*/
 
-		if (framecount > 1) {
-			//goodFeaturesToTrack(u_f2, features_prev, 10, 0.01, 10, Mat(), 3, 3, 0, 0.04);
-			//printf("detected -> %f\n",features_prev[1].x);
-			calcOpticalFlowPyrLK(u_f1, u_f2, features_prev, features_next, status, err, Size(21,21), 3, TermCriteria(TermCriteria::COUNT+TermCriteria::EPS, 30, 0.01), 0, 1e-4 );
-			//features_prev = features_next;
+		//if ( framecount == 1 ) goodFeaturesToTrack(u_f2, features_prev, 10, 0.01, 10, Mat(), 3, 3, 0, 0.04);
 
-			Mat features;
-			subframe.copyTo(features);
-
-			for ( int i = 0; i < features_next.size(); i++ ) {
-				circle(features,cvPoint(features_next[i].x,features_next[i].y),4,CV_RGB(100,0,0),-1,8,0);
-			}
-
-			imshow("features", features);
-
+		if (framecount > 20) {
+			flowRedPoints ( u_f1, u_f2, subframe, features_prev, features_next );
 		}
-
-		farnebackAndLkSpeedComparison(u_f1, u_f2);
 
 		u_f1.copyTo(u_f2);
 
 		//Simulate the movement of particles in the flow field.
+/*
 		streamlines_mat.forEach<Pixel2>([&](Pixel2& pixel, const int position[]) -> void {
 			streamline_field(&pixel, streamlines_distance.ptr<float>(position[0],position[1]), position[1],position[0], current, 2, 1,UPPER,prop_above_upper);
 		});
+*/
 
 		// uppdate buffer range 0 <= x < BUFFER_FRAME
 		if ( update_ith_buffer >= BUFFER_FRAME ) update_ith_buffer = 0;
 
 		//average_vector();
+/*
 		averageVector(buffer, current, update_ith_buffer, average_vector, average_vector_color, grid, max_displacement, UPPER);
 
 		imshow("average vector", average_vector_color);
 		video_output1.write(average_vector_color);
+*/
 
 		// average hsv
+/*
 		averageHSV(subframe, buffer_hsv, update_ith_buffer, average_hsv);
 		imshow("average hsv", average_hsv);
 		video_output2.write(average_hsv);
+*/
 
 		update_ith_buffer++;
 		
@@ -320,26 +312,30 @@ int main(int argc, char** argv )
 		
 		//Discrete,drawable streamlines handled here
 		// creates a copy of current frame
+/*
 		Mat streamout;
 		subframe.copyTo(streamout);
 		get_streamlines(streamout, streamoverlay_color, streamoverlay, streamlines, streampt, framecount, totalframes, current, UPPER, prop_above_upper);
 		imshow("streamlines",streamout);
 		video_output.write(streamout);
+*/
 
 		
 		
 		//convert the x,y current flow field into angle,magnitude form.
 		//Specifically, angle,magnitude,magnitude, as it is later displayed with HSV
 		//This is more interesting to analyze
+/*
 		split(current,splitarr);
 		Mat combine[3];
 		cartToPolar(splitarr[0], splitarr[1], combine[2], combine[0],true);
 		combine[1] = combine[2];
 		merge(combine,3,current);
+*/
 
 		//Construct histograms to get thresholds
 		//Figure out what "slow" or "fast" is
-		create_histogram(current,  hist, histsum, hist2d, histsum2d, UPPER, UPPER2d, prop_above_upper);
+//		create_histogram(current,  hist, histsum, hist2d, histsum2d, UPPER, UPPER2d, prop_above_upper);
 		//display_histogram(hist2d,histsum2d,UPPER2d, UPPER,prop_above_upper);
 		
 		
