@@ -207,6 +207,16 @@ int main(int argc, char** argv )
 		}
 	}
 
+	/* ---------- Streakline ---------- */
+	// vector of streaklines
+	std::vector<Streakline> streaklines;
+
+	# define MAX_STREAKLINES 10
+	// initialize streaklines with seed generation locations
+	for (int s = 0; s < MAX_STREAKLINES; s++) {
+		streaklines.push_back(Streakline(Pixel2(rand()%XDIM,rand()%YDIM)));
+	}
+
 	timediff();
 	for( framecount = 1; true; framecount++){
 
@@ -230,32 +240,43 @@ int main(int argc, char** argv )
 		//Move to GPU (if possible), compute flow, move back
 		f1.copyTo(u_f1);
 		//Parameters are tweakable
+/*
 		calcOpticalFlowFarneback(u_f2,u_f1, u_flow, 0.5, 2, 3, 2, 15, 1.2, OPTFLOW_FARNEBACK_GAUSSIAN); //Give to GPU, possibly
 		flow_raw = u_flow.getMat(ACCESS_READ); //Tell GPU to give it back
 		Mat current = flow_raw;
+*/
 
-		// if (framecount > 20) flowRedPoints ( u_f1, u_f2, subframe, features_prev, features_next );
+		// output image
+		Mat features;
+		subframe.copyTo(features);
 
+		// run calcOpticalFlowPyrLK on each streakline
+		for ( int i = 0; i < streaklines.size(); i++ ) {
+			streaklines[i].runLK(u_f1, u_f2, features);
+		}
+		imshow("features", features);
+		video_output.write(features);
+		
 		u_f1.copyTo(u_f2);
-
+/*
 		//Simulate the movement of particles in the flow field.
 		streamlines_mat.forEach<Pixel2>([&](Pixel2& pixel, const int position[]) -> void {
 			streamline_field(&pixel, streamlines_distance.ptr<float>(position[0],position[1]), position[1],position[0], current, 2, 1,UPPER,prop_above_upper);
 		});
-
+*/
 		// uppdate buffer range 0 <= x < BUFFER_FRAME
 		if ( update_ith_buffer >= BUFFER_FRAME ) update_ith_buffer = 0;
 
-		//average_vector();
 /*
+		//average_vector();
 		averageVector(buffer, current, update_ith_buffer, average_vector, average_vector_color, grid, max_displacement, UPPER);
-
 		imshow("average vector", average_vector_color);
 		video_output1.write(average_vector_color);
 */
 
-		// average hsv
+
 /*
+		// average hsv
 		averageHSV(subframe, buffer_hsv, update_ith_buffer, average_hsv);
 		imshow("average hsv", average_hsv);
 		video_output2.write(average_hsv);
@@ -267,7 +288,7 @@ int main(int argc, char** argv )
 		split(streamlines_mat,splitarr);
 		magnitude(splitarr[0],splitarr[1],streamfield);
 		
-		/*
+/*
 		// How far it moved
 		streamline_displacement(streamfield, streamoverlay_color);
 		//imshow("streamline displacement",streamoverlay_color);
@@ -284,9 +305,9 @@ int main(int argc, char** argv )
 		Mat streamline_density = Mat::zeros(Size(XDIM, YDIM), CV_32FC3);
 		streamline_positions(streamlines_mat, streamline_density);
 		//imshow("streamline positions",streamline_density);
-		*/
+*/
 		
-		
+/*		
 		//Discrete,drawable streamlines handled here
 		// creates a copy of current frame
 		Mat streamout;
@@ -294,6 +315,7 @@ int main(int argc, char** argv )
 		get_streamlines(streamout, streamoverlay_color, streamoverlay, streamlines, streampt, framecount, totalframes, current, UPPER, prop_above_upper);
 		imshow("streamlines",streamout);
 		video_output.write(streamout);
+*/
 
 		
 		
@@ -301,18 +323,20 @@ int main(int argc, char** argv )
 		//Specifically, angle,magnitude,magnitude, as it is later displayed with HSV
 		//This is more interesting to analyze
 
+/*
 		split(current,splitarr);
 		Mat combine[3];
 		cartToPolar(splitarr[0], splitarr[1], combine[2], combine[0],true);
 		combine[1] = combine[2];
 		merge(combine,3,current);
+*/
 
-
+/*
 		//Construct histograms to get thresholds
 		//Figure out what "slow" or "fast" is
 		create_histogram(current,  hist, histsum, hist2d, histsum2d, UPPER, UPPER2d, prop_above_upper);
 		//display_histogram(hist2d,histsum2d,UPPER2d, UPPER,prop_above_upper);
-		
+*/	
 		
 		
 		Mat accumulator2 = Mat::zeros(Size(XDIM, YDIM), CV_32FC3);
@@ -328,14 +352,6 @@ int main(int argc, char** argv )
 
 		//create_accumulationbuffer(accumulator, accumulator2, out, outmask, framecount);
 		//imshow("accumulationbuffer",out);
-
-		
-		//create_edges(outmask);
-		//imshow("edges",outmask);
-
-		
-		//create_output(subframe, outmask);
-		//imshow("output",subframe);
 
 		// end with Esc key on any window
 		int c = waitKey(1);
