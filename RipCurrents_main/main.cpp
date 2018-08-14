@@ -159,6 +159,7 @@ int main(int argc, char** argv )
 		}
 	}*/
 	namedWindow("streamlines", WINDOW_AUTOSIZE );
+    
 	
 	
 	int framecount; //Generic iterator for main loop.
@@ -211,7 +212,7 @@ int main(int argc, char** argv )
 	// vector of streaklines
 	std::vector<Streakline> streaklines;
 
-	# define MAX_STREAKLINES 10
+	# define MAX_STREAKLINES 5
 	// initialize streaklines with seed generation locations
 	for (int s = 0; s < MAX_STREAKLINES; s++) {
 		streaklines.push_back(Streakline(Pixel2(rand()%XDIM,rand()%YDIM)));

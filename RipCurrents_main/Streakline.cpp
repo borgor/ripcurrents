@@ -43,7 +43,7 @@ void Streakline::runLK(UMat u_f1, UMat u_f2, Mat&  outImg) {
 	vertices = vertices_next;
 
 	// generate new vertex after certain number of frames
-	if (frameCount % 200 == 0) {
+	if (frameCount % 1 == 0) {
 		vertices.insert(vertices.begin(), generationPoint);
 	}
 
