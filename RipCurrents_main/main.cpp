@@ -148,6 +148,7 @@ int compute_streamlines(VideoCapture video) {
 	Mat streamoverlay = Mat::zeros(Size(XDIM, YDIM), CV_8UC1);
 	Mat streamoverlay_color = Mat::zeros(Size(XDIM, YDIM), CV_8UC3);
 	int totalframes = (int) video.get(CAP_PROP_FRAME_COUNT);
+	
 
 	// Histogram
 	// Some thresholds to mask out any remaining jitter, and strong waves. Don't know how to calculate them at runtime, so they're arbitrary.
@@ -155,11 +156,13 @@ int compute_streamlines(VideoCapture video) {
 	float MID  = .5;
 	int hist[HIST_BINS] = {0};	//histogram
 	int histsum = 0;
-	float UPPER = 100.0;		// UPPER can be determined programmatically
+	float UPPER = 45.0;		// UPPER can be determined programmatically
 	int hist2d[HIST_DIRECTIONS][HIST_BINS] = {{0}};
 	int histsum2d[HIST_DIRECTIONS] = {0};
 	float UPPER2d[HIST_DIRECTIONS] = {0};
+
 	float prop_above_upper[HIST_DIRECTIONS] = {0};
+
 
 	// Preload a frame
 	video.read(frame);
@@ -168,9 +171,11 @@ int compute_streamlines(VideoCapture video) {
 	cvtColor(resized_frame,grayscaled_frame,COLOR_BGR2GRAY);
 	grayscaled_frame.copyTo(u_prev);
 
+	
+
 
 	// discrete streamline seed points
-	# define MAX_STREAMLINES 500
+	# define MAX_STREAMLINES 100
 	Pixel2 streampt[MAX_STREAMLINES];
 	int streamlines = MAX_STREAMLINES/2;
 
@@ -182,13 +187,13 @@ int compute_streamlines(VideoCapture video) {
 
 	namedWindow("streamlines", WINDOW_AUTOSIZE );
 
-
+	int framecount = 0;
 	// read and process every frame
-	for( int framecount = 1; true; framecount++){
+	for( framecount = 1; true; framecount++){
 
 		// read current frame
 		video.read(frame);
-		printf("Frames read: %d\n",framecount);
+		printf("Frames read : %d\n",framecount);
 		
 		if(frame.empty()) break;
 		
@@ -217,7 +222,8 @@ int compute_streamlines(VideoCapture video) {
 
 		// Construct histograms to get thresholds
 		// Figure out what "slow" or "fast" is
-		create_histogram(current,  hist, histsum, hist2d, histsum2d, UPPER, UPPER2d, prop_above_upper);
+		
+		//create_histogram(current,  hist, histsum, hist2d, histsum2d, UPPER, UPPER2d, prop_above_upper);
 
 		// end with Esc key on any window
 		int c = waitKey(1);
@@ -234,5 +240,5 @@ int compute_streamlines(VideoCapture video) {
 	video_output.release();
 	destroyAllWindows();
 
-	return 1;
+	return 0;
 }

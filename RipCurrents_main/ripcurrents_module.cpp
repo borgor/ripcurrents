@@ -70,7 +70,7 @@ void streamline_positions(Mat& streamlines_mat, Mat& streamline_density){
 // float prop_above_upper
 void get_streamlines(Mat& streamout, Mat& streamoverlay_color, Mat& streamoverlay, int streamlines, Pixel2 streampt[], int framecount, int totalframes, Mat& current, float UPPER, float prop_above_upper[]){
 	for(int s = 0; s < streamlines; s++){
-		streamline(streampt+s, Scalar(framecount*(255.0/totalframes)), current, streamoverlay, 2, 1,UPPER,prop_above_upper);
+		streamline_2(streampt+s, Scalar(framecount*(255.0/totalframes)), current, streamoverlay, 2, 1,UPPER,prop_above_upper);
 	}
 	
 	applyColorMap(streamoverlay, streamoverlay_color, COLORMAP_RAINBOW);
@@ -99,7 +99,8 @@ void create_histogram(Mat current, int hist[HIST_BINS], int& histsum, int hist2d
 			int angle = (ptr->x * HIST_DIRECTIONS)/ 360; //order matters, truncation
 			if(bin < HIST_BINS &&  bin >= 0){
 				hist[bin]++; histsum++;
-				hist2d[angle][bin]++; histsum2d[angle]++;
+				hist2d[angle][bin]++;
+				histsum2d[angle]++;
 			}
 		}
 	}
@@ -524,6 +525,46 @@ void streamline(Pixel2 * pt, cv::Scalar color, cv::Mat flow, cv::Mat overlay, fl
 	
 	return;
 }
+
+
+void streamline_2(Pixel2 * pt, cv::Scalar color, cv::Mat flow, cv::Mat overlay, float dt, int iterations, float UPPER, float prop_above_upper[HIST_DIRECTIONS]){
+	
+	
+	for( int i = 0; i< 10; i++){
+		
+		float x = pt->x;
+		float y = pt->y;
+		
+		int xind = (int) floor(x);
+		int yind = (int) floor(y);
+		float xrem = x - xind;
+		float yrem = y - yind;
+		
+		if(xind < 1 || yind < 1 || xind + 2 > flow.cols || yind  + 2 > flow.rows)  //Verify array bounds
+		{
+			return;
+		}
+		
+		//Bilinear interpolation
+		Pixel2 delta =		(*flow.ptr<Pixel2>(yind,xind))		* (1-xrem)*(1-yrem) +
+		(*flow.ptr<Pixel2>(yind,xind+1))	* (xrem)*(1-yrem) +
+		(*flow.ptr<Pixel2>(yind+1,xind))	* (1-xrem)*(yrem) +
+		(*flow.ptr<Pixel2>(yind+1,xind+1))	* (xrem)*(yrem) ;
+		
+		float r = sqrt(delta.x*delta.x + delta.y*delta.y);
+		if(r > 5){return;}
+		
+		
+		Pixel2 newpt = *pt + delta*0.1/iterations;
+		
+		cv::line(overlay,* pt, newpt, color, 1, 8, 0);
+		
+		*pt = newpt;
+	}
+	
+	return;
+}
+
 
 void streamline_field(Pixel2 * pt, float* distancetraveled, int xoffset, int yoffset, cv::Mat flow, float dt, int iterations, float UPPER, float prop_above_upper[HIST_DIRECTIONS]){
 	
