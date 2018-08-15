@@ -16,6 +16,6 @@ class Streakline {
 
         void drawLine();
 
-        void runLK(UMat u_f1, UMat u_f2, Mat& outImg);
+        void runLK(UMat u_prev, UMat u_current, Mat& outImg);
 };
 #endif
