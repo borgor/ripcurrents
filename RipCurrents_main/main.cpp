@@ -137,7 +137,7 @@ int compute_streamlines(VideoCapture video) {
 	Mat frame;			// raw current frame image
 	Mat resized_frame;	// resized current frame image
 	Mat grayscaled_frame;			// gray scaled current frame image
-	Mat current;		// Mat output velocity field of OpticalFlow
+	Mat current = Mat::zeros(YDIM,XDIM,CV_32FC2);;		// Mat output velocity field of OpticalFlow
 	
 	// OpenCL/GPU matrices
 	UMat u_current;		// UMat current frame
@@ -175,7 +175,7 @@ int compute_streamlines(VideoCapture video) {
 
 
 	// discrete streamline seed points
-	# define MAX_STREAMLINES 100
+	# define MAX_STREAMLINES 20
 	Pixel2 streampt[MAX_STREAMLINES];
 	int streamlines = MAX_STREAMLINES/2;
 
@@ -205,8 +205,18 @@ int compute_streamlines(VideoCapture video) {
 
 
 		// Run optical flow farneback
-		calcOpticalFlowFarneback(u_prev, u_current, u_flow, 0.5, 2, 3, 2, 15, 1.2, OPTFLOW_FARNEBACK_GAUSSIAN);
-		current = u_flow.getMat(ACCESS_READ);
+		//calcOpticalFlowFarneback(u_prev, u_current, u_flow, 0.5, 2, 3, 2, 15, 1.2, OPTFLOW_FARNEBACK_GAUSSIAN);
+		//current = u_flow.getMat(ACCESS_READ);
+
+
+		// circle sample input vector field
+		for ( int row = 0; row < YDIM; row++ ){
+			for ( int col = 0; col < XDIM; col++ ){
+				current.at<Pixel2>(row,col).x = -(row - YDIM / 2.0) / YDIM;
+				current.at<Pixel2>(row,col).y = (col - XDIM / 2.0) / XDIM;
+			}
+		}
+		
 
 
 		// draw streamlines

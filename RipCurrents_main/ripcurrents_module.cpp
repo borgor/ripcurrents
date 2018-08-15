@@ -530,7 +530,7 @@ void streamline(Pixel2 * pt, cv::Scalar color, cv::Mat flow, cv::Mat overlay, fl
 void streamline_2(Pixel2 * pt, cv::Scalar color, cv::Mat flow, cv::Mat overlay, float dt, int iterations, float UPPER, float prop_above_upper[HIST_DIRECTIONS]){
 	
 	
-	for( int i = 0; i< 10; i++){
+	for( int i = 0; i< 1; i++){
 		
 		float x = pt->x;
 		float y = pt->y;
@@ -555,7 +555,7 @@ void streamline_2(Pixel2 * pt, cv::Scalar color, cv::Mat flow, cv::Mat overlay, 
 		if(r > 5){return;}
 		
 		
-		Pixel2 newpt = *pt + delta*0.1/iterations;
+		Pixel2 newpt = *pt + delta*10/iterations;
 		
 		cv::line(overlay,* pt, newpt, color, 1, 8, 0);
 		
