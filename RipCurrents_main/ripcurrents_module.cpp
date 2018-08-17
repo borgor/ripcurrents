@@ -70,7 +70,7 @@ void streamline_positions(Mat& streamlines_mat, Mat& streamline_density){
 // float prop_above_upper
 void get_streamlines(Mat& streamout, Mat& streamoverlay_color, Mat& streamoverlay, int streamlines, Pixel2 streampt[], int framecount, int totalframes, Mat& current, float UPPER, float prop_above_upper[]){
 	for(int s = 0; s < streamlines; s++){
-		streamline_2(streampt+s, Scalar(framecount*(255.0/totalframes)), current, streamoverlay, 2, 1,UPPER,prop_above_upper);
+		streamline_3(streampt+s, Scalar(framecount*(255.0/totalframes)), current, streamoverlay, 2, 1,UPPER,prop_above_upper);
 	}
 	
 	applyColorMap(streamoverlay, streamoverlay_color, COLORMAP_RAINBOW);
@@ -565,6 +565,42 @@ void streamline_2(Pixel2 * pt, cv::Scalar color, cv::Mat flow, cv::Mat overlay, 
 	return;
 }
 
+
+void streamline_3(Pixel2 * pt, cv::Scalar color, cv::Mat flow, cv::Mat overlay, float dt, int iterations, float UPPER, float prop_above_upper[HIST_DIRECTIONS]){
+	
+	
+	for( int i = 0; i< 100; i++){
+		
+		float x = pt->x;
+		float y = pt->y;
+		
+		int xind = (int) floor(x);
+		int yind = (int) floor(y);
+		float xrem = x - xind;
+		float yrem = y - yind;
+		
+		if(xind < 1 || yind < 1 || xind + 2 > flow.cols || yind  + 2 > flow.rows)  //Verify array bounds
+		{
+			return;
+		}
+		
+		//Bilinear interpolation
+		Pixel2 delta =		(*flow.ptr<Pixel2>(yind,xind))		* (1-xrem)*(1-yrem) +
+		(*flow.ptr<Pixel2>(yind,xind+1))	* (xrem)*(1-yrem) +
+		(*flow.ptr<Pixel2>(yind+1,xind))	* (1-xrem)*(yrem) +
+		(*flow.ptr<Pixel2>(yind+1,xind+1))	* (xrem)*(yrem) ;
+		
+		
+		
+		Pixel2 newpt = *pt + delta*0.1;
+		
+		cv::line(overlay,* pt, newpt, color, 1, 8, 0);
+		
+		*pt = newpt;
+	}
+	
+	return;
+}
 
 void streamline_field(Pixel2 * pt, float* distancetraveled, int xoffset, int yoffset, cv::Mat flow, float dt, int iterations, float UPPER, float prop_above_upper[HIST_DIRECTIONS]){
 	

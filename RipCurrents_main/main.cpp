@@ -212,8 +212,10 @@ int compute_streamlines(VideoCapture video) {
 		// circle sample input vector field
 		for ( int row = 0; row < YDIM; row++ ){
 			for ( int col = 0; col < XDIM; col++ ){
-				current.at<Pixel2>(row,col).x = -(row - YDIM / 2.0) / YDIM;
-				current.at<Pixel2>(row,col).y = (col - XDIM / 2.0) / XDIM;
+				//current.at<Pixel2>(row,col).x = -(row - YDIM / 2.0) / YDIM * 10;
+				//current.at<Pixel2>(row,col).y = (col - XDIM / 2.0) / XDIM * 10;
+				current.at<Pixel2>(row,col).x = 10;
+				current.at<Pixel2>(row,col).y = -10;
 			}
 		}
 		
@@ -229,6 +231,8 @@ int compute_streamlines(VideoCapture video) {
 		
 		// prepare for next frame
 		u_current.copyTo(u_prev);
+
+		//waitKey(0);
 
 		// Construct histograms to get thresholds
 		// Figure out what "slow" or "fast" is
