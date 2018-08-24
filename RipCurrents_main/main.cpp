@@ -15,6 +15,7 @@
 
 int compute_streaklines(VideoCapture video);
 int compute_streamlines(VideoCapture video);
+int validate_streamlines(VideoCapture video);
 
 int main(int argc, char** argv) {
 
@@ -33,7 +34,7 @@ int main(int argc, char** argv) {
 	}
 
 	// compute_streaklines(video);
-	compute_streamlines(video);
+	validate_streamlines(video);
 }
 
 int compute_streaklines(VideoCapture video) {
@@ -249,6 +250,145 @@ int compute_streamlines(VideoCapture video) {
 		}
 
 	}
+
+	// clean up
+	video_output.release();
+	destroyAllWindows();
+
+	return 0;
+}
+
+
+int validate_streamlines(VideoCapture video) {
+
+	// set up output videos
+	String video_name = "streamlines_validate";
+	VideoWriter video_output( video_name + ".mp4",CV_FOURCC('X','2','6','4'), 30, cv::Size(XDIM,YDIM),true);
+
+	if (!video_output.isOpened())
+	{
+		std::cout << "!!! Output video could not be opened" << std::endl;
+		return -1;
+	}
+
+	// OpenCV matrices to load images
+	Mat frame;			// raw current frame image
+	Mat resized_frame;	// resized current frame image
+	Mat grayscaled_frame;			// gray scaled current frame image
+	Mat current = Mat::zeros(YDIM,XDIM,CV_32FC2);		// Mat output velocity field of OpticalFlow
+	
+	// OpenCL/GPU matrices
+	UMat u_current;		// UMat current frame
+	UMat u_prev;		// UMat previous frame
+	UMat u_flow;		// output velocity field of OpticalFlow
+
+	// streamlines matrices
+	Mat streamoverlay = Mat::zeros(Size(XDIM, YDIM), CV_8UC1);
+	Mat streamoverlay_color = Mat::zeros(Size(XDIM, YDIM), CV_8UC3);
+	int totalframes = (int) video.get(CAP_PROP_FRAME_COUNT);
+	
+
+	// Histogram
+	// Some thresholds to mask out any remaining jitter, and strong waves. Don't know how to calculate them at runtime, so they're arbitrary.
+	float LOWER =  0.2;
+	float MID  = .5;
+	int hist[HIST_BINS] = {0};	//histogram
+	int histsum = 0;
+	float UPPER = 45.0;		// UPPER can be determined programmatically
+	int hist2d[HIST_DIRECTIONS][HIST_BINS] = {{0}};
+	int histsum2d[HIST_DIRECTIONS] = {0};
+	float UPPER2d[HIST_DIRECTIONS] = {0};
+
+	float prop_above_upper[HIST_DIRECTIONS] = {0};
+
+
+	// Preload a frame
+	video.read(frame);
+	if(frame.empty()) exit(1);
+	resize(frame,resized_frame,Size(XDIM,YDIM),0,0,INTER_AREA);
+	cvtColor(resized_frame,grayscaled_frame,COLOR_BGR2GRAY);
+	grayscaled_frame.copyTo(u_prev);
+
+	namedWindow("streamlines", WINDOW_AUTOSIZE );
+
+	// read current frame
+	video.read(frame);
+	
+	if(frame.empty()) return 1;
+	
+
+	// prepare input image
+	resize(frame,resized_frame,Size(XDIM,YDIM),0,0,INTER_LINEAR);
+	cvtColor(resized_frame,grayscaled_frame,COLOR_BGR2GRAY);
+	grayscaled_frame.copyTo(u_current);
+
+
+	// Run optical flow farneback
+	//calcOpticalFlowFarneback(u_prev, u_current, u_flow, 0.5, 2, 3, 2, 15, 1.2, OPTFLOW_FARNEBACK_GAUSSIAN);
+	//current = u_flow.getMat(ACCESS_READ);
+
+
+	Mat flow = Mat::zeros(YDIM,XDIM,CV_32FC2);;
+
+	// circle sample input vector field
+	for ( int row = 0; row < YDIM; row++ ){
+		for ( int col = 0; col < XDIM; col++ ){
+			flow.at<Pixel2>(row,col).x = -(row - YDIM / 2.0) / YDIM * 1000;
+			flow.at<Pixel2>(row,col).y = (col - XDIM / 2.0) / XDIM * 1000;
+		}
+	}
+
+	printf("%f\ln", flow.at<Pixel2>(200,200).x);
+	printf("%f\ln", flow.at<Pixel2>(200,200).y);
+	
+
+
+	// draw streamlines
+	Mat streamout;
+	resized_frame.copyTo(streamout);
+
+	// original seed point
+	Pixel2 streampt = Pixel2(200,200);
+
+	double dt = 0.01;
+	int iteration = 10000;
+
+	for( int i = 0; i < iteration; i++){
+		
+		float x = streampt.x;
+		float y = streampt.y;
+		
+		int xind = (int) floor(x);
+		int yind = (int) floor(y);
+		float xrem = x - xind;
+		float yrem = y - yind;
+		
+		if(xind < 1 || yind < 1 || xind + 2 > flow.cols || yind  + 2 > flow.rows)  //Verify array bounds
+		{
+			continue;
+		}
+		
+		//Bilinear interpolation
+		Pixel2 delta =		(*flow.ptr<Pixel2>(yind,xind))		* (1-xrem)*(1-yrem) +
+		(*flow.ptr<Pixel2>(yind,xind+1))	* (xrem)*(1-yrem) +
+		(*flow.ptr<Pixel2>(yind+1,xind))	* (1-xrem)*(yrem) +
+		(*flow.ptr<Pixel2>(yind+1,xind+1))	* (xrem)*(yrem) ;
+		
+		
+		
+		Pixel2 newpt = streampt + delta * dt;
+
+		//printf("%f\n", delta.x);
+		//printf("%f\n", delta.y);
+		
+		cv::line(streamout, streampt, newpt, CV_RGB(100,0,0), 1, 8, 0);
+
+		imshow("streamlines",streamout);
+		video_output.write(streamout);
+		
+		streampt = newpt;
+	}
+
 
 	// clean up
 	video_output.release();
