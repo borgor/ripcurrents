@@ -333,16 +333,14 @@ int validate_streamlines(VideoCapture video) {
 	// circle sample input vector field
 	for ( int row = 0; row < YDIM; row++ ){
 		for ( int col = 0; col < XDIM; col++ ){
-			flow.at<Pixel2>(row,col).x = -(row - YDIM / 2.0) / YDIM * 1000;
-			flow.at<Pixel2>(row,col).y = (col - XDIM / 2.0) / XDIM * 1000;
+			flow.at<Pixel2>(row,col).x = -(row - YDIM / 2.0) / YDIM * 100;
+			flow.at<Pixel2>(row,col).y = (col - XDIM / 2.0) / XDIM * 100;
 		}
 	}
 
-	printf("%f\ln", flow.at<Pixel2>(200,200).x);
-	printf("%f\ln", flow.at<Pixel2>(200,200).y);
+	printf("%f\n", flow.at<Pixel2>(200,200).x);
+	printf("%f\n", flow.at<Pixel2>(200,200).y);
 	
-
-
 	// draw streamlines
 	Mat streamout;
 	resized_frame.copyTo(streamout);
@@ -350,10 +348,12 @@ int validate_streamlines(VideoCapture video) {
 	// original seed point
 	Pixel2 streampt = Pixel2(200,200);
 
-	double dt = 0.01;
-	int iteration = 10000;
+	double dt = 0.03;
+	int iteration = 3500;
 
 	for( int i = 0; i < iteration; i++){
+
+		if(i % 10 == 0 ) printf("%d iterations\n", i);
 		
 		float x = streampt.x;
 		float y = streampt.y;
@@ -387,6 +387,10 @@ int validate_streamlines(VideoCapture video) {
 		video_output.write(streamout);
 		
 		streampt = newpt;
+
+		// end with Esc key on any window
+		int c = waitKey(1);
+		if ( c == 27) break;
 	}
 
 
