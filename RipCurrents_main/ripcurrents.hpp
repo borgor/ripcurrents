@@ -1,8 +1,8 @@
 #ifndef __RIPCURRENTS_HPP_INCLUDE__
 #define __RIPCURRENTS_HPP_INCLUDE__
 
-#define XDIM 500   // Dimensions to resize to
-#define YDIM 500
+#define XDIM 640  // Dimensions to resize to
+#define YDIM 480
 
 #define HIST_BINS 50 // Number of bins for finding thresholds
 #define HIST_DIRECTIONS 36 // Number of 2d histogram directions

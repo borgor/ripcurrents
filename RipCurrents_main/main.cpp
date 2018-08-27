@@ -34,7 +34,9 @@ int main(int argc, char** argv) {
 	}
 
 	// compute_streaklines(video);
-	validate_streamlines(video);
+	compute_streamlines(video);
+
+	return 0;
 }
 
 int compute_streaklines(VideoCapture video) {
@@ -180,10 +182,13 @@ int compute_streamlines(VideoCapture video) {
 	Pixel2 streampt[MAX_STREAMLINES];
 	int streamlines = MAX_STREAMLINES/2;
 
-	sranddev();
+	/*sranddev();
 	for(int s = 0; s < streamlines; s++){
 		streampt[s] = Pixel2(rand()%XDIM,rand()%YDIM);
-	}
+	}*/
+	// original seed point
+	streamlines = 1;
+	streampt[0] = Pixel2(300,300);
 
 
 	namedWindow("streamlines", WINDOW_AUTOSIZE );
@@ -206,20 +211,8 @@ int compute_streamlines(VideoCapture video) {
 
 
 		// Run optical flow farneback
-		//calcOpticalFlowFarneback(u_prev, u_current, u_flow, 0.5, 2, 3, 2, 15, 1.2, OPTFLOW_FARNEBACK_GAUSSIAN);
-		//current = u_flow.getMat(ACCESS_READ);
-
-
-		// circle sample input vector field
-		for ( int row = 0; row < YDIM; row++ ){
-			for ( int col = 0; col < XDIM; col++ ){
-				//current.at<Pixel2>(row,col).x = -(row - YDIM / 2.0) / YDIM * 10;
-				//current.at<Pixel2>(row,col).y = (col - XDIM / 2.0) / XDIM * 10;
-				current.at<Pixel2>(row,col).x = 10;
-				current.at<Pixel2>(row,col).y = -10;
-			}
-		}
-		
+		calcOpticalFlowFarneback(u_prev, u_current, u_flow, 0.5, 2, 3, 2, 15, 1.2, OPTFLOW_FARNEBACK_GAUSSIAN);
+		current = u_flow.getMat(ACCESS_READ);
 
 
 		// draw streamlines
@@ -233,11 +226,9 @@ int compute_streamlines(VideoCapture video) {
 		// prepare for next frame
 		u_current.copyTo(u_prev);
 
-		//waitKey(0);
 
 		// Construct histograms to get thresholds
 		// Figure out what "slow" or "fast" is
-		
 		//create_histogram(current,  hist, histsum, hist2d, histsum2d, UPPER, UPPER2d, prop_above_upper);
 
 		// end with Esc key on any window
