@@ -16,6 +16,7 @@
 int compute_streaklines(VideoCapture video);
 int compute_streamlines(VideoCapture video);
 int validate_streamlines(VideoCapture video);
+int compute_timelines(VideoCapture video);
 
 int main(int argc, char** argv) {
 
@@ -34,7 +35,7 @@ int main(int argc, char** argv) {
 	}
 
 	// compute_streaklines(video);
-	compute_streamlines(video);
+	compute_timelines(video);
 
 	return 0;
 }
@@ -390,4 +391,106 @@ int validate_streamlines(VideoCapture video) {
 	destroyAllWindows();
 
 	return 0;
+}
+
+
+int compute_timelines(VideoCapture video) {
+
+	// set up output videos
+	String video_name = "timelines";
+	VideoWriter video_output( video_name + ".mp4",CV_FOURCC('X','2','6','4'), 30, cv::Size(XDIM,YDIM),true);
+
+	if (!video_output.isOpened())
+	{
+		std::cout << "!!! Output video could not be opened" << std::endl;
+		return -1;
+	}
+
+	// OpenCV matrices to load images
+	Mat frame;		// raw current frame image
+	Mat resized_frame;	// resized current frame image
+	Mat grayscaled_frame;			// gray scaled current frame image
+	
+	// OpenCL/GPU matrices
+	UMat u_current;		// UMat current frame
+	UMat u_prev;		// UMat previous frame
+	
+
+	// vector of streakliines
+	std::vector<Streakline> streaklines;
+
+	// initialize streaklines with seed generation locations
+	# define MAX_STREAKLINES 5
+	for (int s = 0; s < MAX_STREAKLINES; s++) {
+		streaklines.push_back(Streakline(Pixel2(rand()%XDIM,rand()%YDIM)));
+	}
+
+	Pixel2 startPoint = Pixel2(100,100);
+	Pixel2 endPoint = Pixel2(300,300);
+
+	// array of points on a line
+	std::vector<Pixel2> pointsLine;
+
+	int numberOfPointsOnLine = 10;
+
+	float diffX = (endPoint.x - startPoint.x) / numberOfPointsOnLine;
+	float diffY = (endPoint.y - startPoint.y) / numberOfPointsOnLine;
+
+	for (int i = 0; i <= numberOfPointsOnLine; i++) {
+		pointsLine.push_back(Pixel2(startPoint.x + diffX * i, startPoint.y + diffY * i));
+	}
+
+
+	//Preload a frame
+	video.read(frame);
+	if(frame.empty()) exit(1);
+	resize(frame,resized_frame,Size(XDIM,YDIM),0,0,INTER_AREA);
+	cvtColor(resized_frame,grayscaled_frame,COLOR_BGR2GRAY);
+	grayscaled_frame.copyTo(u_prev);
+
+
+	// read and process every frame
+	for( int framecount = 1; true; framecount++){
+
+		// read current frame
+		video.read(frame);
+		printf("Frames read: %d\n",framecount);
+		
+		if(frame.empty()) break;
+		
+
+		// prepare input image
+		resize(frame,resized_frame,Size(XDIM,YDIM),0,0,INTER_LINEAR);
+		cvtColor(resized_frame,grayscaled_frame,COLOR_BGR2GRAY);
+		grayscaled_frame.copyTo(u_current);
+
+		Mat features;	// output image
+		resized_frame.copyTo(features);
+
+		for (int i = 0; i <= numberOfPointsOnLine; i++) {
+			circle(resized_frame, pointsLine[i], 2, Scalar(0, 255, 0), CV_FILLED, 16, 0);
+		}
+
+		imshow("streaklines", resized_frame);
+		// video_output.write(resized_frame);
+		
+		// prepare for next frame
+		u_current.copyTo(u_prev);
+
+		// end with Esc key on any window
+		int c = waitKey(1);
+		if ( c == 27) break;
+
+		// stop and restart with any key
+		if ( c != -1 && c != 27 ) {
+			waitKey(0);
+		}
+
+	}
+
+	// clean up
+	video_output.release();
+	destroyAllWindows();
+
+	return 1;
 }
