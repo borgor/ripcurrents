@@ -746,3 +746,118 @@ void flowRedPoints ( UMat u_f1, UMat u_f2, Mat subframe, std::vector<Point2f>& f
 
 	imshow("features", features);
 }
+
+Timeline::Timeline(Pixel2 lineStart, Pixel2 lineEnd, int numberOfVertices){
+	
+	// define the distance between each vertices
+	float diffX = (lineEnd.x - lineStart.x) / numberOfVertices;
+	float diffY = (lineEnd.y - lineStart.y) / numberOfVertices;
+
+	// create and push Pixel2 points
+	for (int i = 0; i <= numberOfVertices; i++)
+	{
+		vertices.push_back(Pixel2(lineStart.x + diffX * i, lineStart.y + diffY * i));
+	}
+
+}
+
+void Timeline::runLK(UMat u_prev, UMat u_current, Mat& outImg) {
+	printf("a");
+	// return status values of calcOpticalFlowPyrLK
+	vector<uchar> status;
+	vector<float> err;
+
+	// output locations of vertices
+	vector<Pixel2> vertices_next;
+
+	// run LK for all vertices
+	calcOpticalFlowPyrLK(u_prev, u_current, vertices, vertices_next, status, err, Size(50,50),3, TermCriteria(TermCriteria::COUNT+TermCriteria::EPS, 30, 0.1), 10, 1e-4 );
+
+	/*
+	// eliminate any large movement
+	for ( int i = 0; i < (int)vertices_next.size(); i++) {
+		if ( abs(vertices.at(i).x - vertices_next.at(i).x) > XDIM * 0.1 
+			|| abs(vertices.at(i).y - vertices_next.at(i).y) > YDIM * 0.1 ) {
+				vertices_next.at(i) = vertices.at(i);
+			}
+	}
+	*/
+
+	// copy the result for the next frame
+	vertices = vertices_next;
+
+	/*
+	// delete out of bound vertices
+	for ( int i = 0; i < (int)vertices.size(); i++) {
+		// if vertex is not in the image
+		//printf("%d %f \n", YDIM, vertices.at(i).y);
+		if (vertices.at(i).x <= 0 || vertices.at(i).x >= XDIM || vertices.at(i).y <= 0 || vertices.at(i).y >= YDIM) {
+			vertices.erase(vertices.begin(), vertices.begin() + i);
+		}
+	}
+	*/
+
+	// draw edges
+	circle(outImg,cvPoint(vertices[0].x,vertices[0].y),2,CV_RGB(0,0,100),-1,8,0);
+	for ( int i = 0; i < (int)vertices.size() - 1; i++ ) {
+		circle(outImg,cvPoint(vertices[i+1].x,vertices[i+1].y),2,CV_RGB(0,0,100),-1,8,0);
+		line(outImg,cvPoint(vertices[i].x,vertices[i].y),cvPoint(vertices[i+1].x,vertices[i+1].y),CV_RGB(100,0,0),1,8,0);
+	}
+}
+
+
+void subtructAverage(Mat& current) {
+	
+	float average_x = 0;
+	float average_y = 0;
+
+	Scalar average = mean(current);
+	printf("%f ", average.val[0]);
+	printf("%f\n", average.val[1]);
+
+	for ( int row = 0; row < current.rows; row++ ){
+		Pixel2* ptr = current.ptr<Pixel2>(row, 0);
+		for ( int col = 0; col < current.cols; col++){
+			ptr->x -= average.val[0];
+			ptr->y -= average.val[1];
+			ptr++;
+		}
+	}
+}
+
+void vectorToColor(Mat& current, Mat& outImg) {
+
+	static float max_displacement = 1;
+
+	float global_theta = 0;
+	float global_magnitude = 0;
+
+	for ( int row = 0; row < current.rows; row++ ) {
+		Pixel2* ptr = current.ptr<Pixel2>(row, 0);
+		Pixelc* ptr2 = outImg.ptr<Pixelc>(row, 0);
+
+		for ( int col = 0; col < current.cols; col++ ) {
+			float theta = atan2(ptr->y, ptr->x)*180/M_PI;	// find angle
+			theta += theta < 0 ? 360 : 0;	// enforce strict positive angle
+			
+			// store vector data
+			ptr2->x = theta / 2;
+			ptr2->y = 255;
+			ptr2->z = sqrt(ptr->x * ptr->x + ptr->y * ptr->y)*255/max_displacement * 10;
+			//if ( ptr2->z < 30 ) ptr2->z = 0;
+
+			// store the previous max to maxmin next frame
+			if ( sqrt(ptr->x * ptr->x + ptr->y * ptr->y) > max_displacement ) max_displacement = sqrt(ptr->x * ptr->x + ptr->y * ptr->y);
+
+			global_theta += ptr2->x * ptr2->z;
+			global_magnitude += ptr2->z;
+
+
+			ptr++;
+			ptr2++;
+		}
+	}
+
+	// show as hsv format
+	cvtColor(outImg, outImg, CV_HSV2BGR);
+}

@@ -13,6 +13,7 @@
 #define GRID_COUNT 30 // number of arrows per row and col
 
 using namespace cv;
+using namespace std;
 
 typedef cv::Point3_<uchar> Pixelc;
 typedef cv::Point_<float> Pixel2;
@@ -59,5 +60,20 @@ void get_delta(Pixel2 * pt, int xoffset, int yoffset, cv::Mat flow, float dt, fl
 void farnebackAndLkSpeedComparison ( UMat u_f1, UMat u_f2 );
 
 void flowRedPoints ( UMat u_f1, UMat u_f2, Mat subframe, std::vector<Point2f>& features_prev, std::vector<Point2f>& features_next );
+
+class Timeline {
+	public: 
+		vector<Pixel2> vertices;
+
+		// Constructor
+		Timeline(Pixel2 lineStart, Pixel2 lineEnd, int numberOfVertices);
+
+		// run LK method on each vertex and draw lines
+		void runLK(UMat u_prev, UMat u_current, Mat& outImg);
+};
+
+void subtructAverage(Mat& current);
+
+void vectorToColor(Mat& current, Mat& outImg);
 
 #endif
