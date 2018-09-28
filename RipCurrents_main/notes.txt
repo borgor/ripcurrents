@@ -1,0 +1,10 @@
+timelines
+    // @ params
+	Pixel2 lineStart = Pixel2(100,100);
+	Pixel2 lineEnd = Pixel2(400,100);
+	int numberOfVertices = 5;
+
+    works well
+    only one vertex in ripcurrents stays in ocean
+
+preload prev frame before loop or doesn't work
