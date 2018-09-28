@@ -76,4 +76,16 @@ void subtructAverage(Mat& current);
 
 void vectorToColor(Mat& current, Mat& outImg);
 
+
+class PopulationMap {
+	public:
+		vector<Pixel2> vertices;
+
+		// Constructor
+		PopulationMap(Pixel2 rectStart, Pixel2 rectEnd, int numberOfVertices);
+
+		// run LK method on each vertex and draw lines
+		void runLK(UMat u_prev, UMat u_current, Mat& outImg);
+};
+
 #endif

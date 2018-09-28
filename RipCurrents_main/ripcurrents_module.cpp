@@ -740,7 +740,7 @@ void flowRedPoints ( UMat u_f1, UMat u_f2, Mat subframe, std::vector<Point2f>& f
 	Mat features;
 	subframe.copyTo(features);
 
-	for ( int i = 0; i < features_next.size(); i++ ) {
+	for ( int i = 0; i < (int)features_next.size(); i++ ) {
 		circle(features,cvPoint(features_next[i].x,features_next[i].y),2,CV_RGB(100,0,0),-1,8,0);
 	}
 
@@ -762,7 +762,7 @@ Timeline::Timeline(Pixel2 lineStart, Pixel2 lineEnd, int numberOfVertices){
 }
 
 void Timeline::runLK(UMat u_prev, UMat u_current, Mat& outImg) {
-	printf("a");
+
 	// return status values of calcOpticalFlowPyrLK
 	vector<uchar> status;
 	vector<float> err;
@@ -807,9 +807,6 @@ void Timeline::runLK(UMat u_prev, UMat u_current, Mat& outImg) {
 
 
 void subtructAverage(Mat& current) {
-	
-	float average_x = 0;
-	float average_y = 0;
 
 	Scalar average = mean(current);
 	printf("%f ", average.val[0]);
@@ -860,4 +857,62 @@ void vectorToColor(Mat& current, Mat& outImg) {
 
 	// show as hsv format
 	cvtColor(outImg, outImg, CV_HSV2BGR);
+}
+
+PopulationMap::PopulationMap(Pixel2 rectStart, Pixel2 rectEnd, int numberOfVertices) {
+
+	for (int i = 0; i < numberOfVertices; i++)
+	{
+		sranddev();
+		float randX = (rectEnd.x - rectStart.x) * (((double) rand() / (RAND_MAX)) + 1) + rectStart.x;
+		float randY = (rectEnd.y - rectStart.y) * (((double) rand() / (RAND_MAX)) + 1) + rectStart.y;
+		vertices.push_back(Pixel2(randX, randY));
+	}
+	printf("%f", vertices[0].x);
+
+}
+
+void PopulationMap::runLK(UMat u_prev, UMat u_current, Mat& outImg) {
+	// return status values of calcOpticalFlowPyrLK
+	vector<uchar> status;
+	vector<float> err;
+
+	// output locations of vertices
+	vector<Pixel2> vertices_next;
+
+	// run LK for all vertices
+	calcOpticalFlowPyrLK(u_prev, u_current, vertices, vertices_next, status, err, Size(50,50),3, TermCriteria(TermCriteria::COUNT+TermCriteria::EPS, 30, 0.1), 10, 1e-4 );
+
+	/*
+	// eliminate any large movement
+	for ( int i = 0; i < (int)vertices_next.size(); i++) {
+		if ( abs(vertices.at(i).x - vertices_next.at(i).x) > XDIM * 0.1 
+			|| abs(vertices.at(i).y - vertices_next.at(i).y) > YDIM * 0.1 ) {
+				vertices_next.at(i) = vertices.at(i);
+			}
+	}
+	*/
+
+	// copy the result for the next frame
+	vertices = vertices_next;
+
+	/*
+	// delete out of bound vertices
+	for ( int i = 0; i < (int)vertices.size(); i++) {
+		// if vertex is not in the image
+		//printf("%d %f \n", YDIM, vertices.at(i).y);
+		if (vertices.at(i).x <= 0 || vertices.at(i).x >= XDIM || vertices.at(i).y <= 0 || vertices.at(i).y >= YDIM) {
+			vertices.erase(vertices.begin(), vertices.begin() + i);
+		}
+	}
+	*/
+
+	// draw vertices with transparency
+	Mat overlay;
+	double opacity = 0.5;
+	for ( int i = 0; i < (int)vertices.size(); i++ ) {
+		outImg.copyTo(overlay);
+		circle(overlay,cvPoint(vertices[i].x,vertices[i].y),10,CV_RGB(100,0,0),-1,8,0);
+		addWeighted(overlay, opacity, outImg, 1 - opacity, 0, outImg, -1);
+	}
 }
