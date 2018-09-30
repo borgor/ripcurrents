@@ -7,4 +7,12 @@ timelines
     works well
     only one vertex in ripcurrents stays in ocean
 
+Subtruct average vector
+    average is not enough to flip the ripcurrents vectors
+    could be adjusted by histogram
+
+Population map
+    80% of population gors to the shore
+    20% leaves on ripcurrents
+
 preload prev frame before loop or doesn't work

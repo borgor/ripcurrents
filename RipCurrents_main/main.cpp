@@ -621,7 +621,7 @@ int compute_populationMap(VideoCapture video) {
 		population.runLK(u_prev, u_current, outImg);
 
 		imshow("populationMap", outImg);
-		// video_output.write(resized_frame);
+		video_output.write(outImg);
 		
 		// prepare for next frame
 		u_current.copyTo(u_prev);
