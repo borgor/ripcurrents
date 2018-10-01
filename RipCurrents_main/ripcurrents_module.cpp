@@ -798,10 +798,10 @@ void Timeline::runLK(UMat u_prev, UMat u_current, Mat& outImg) {
 	*/
 
 	// draw edges
-	circle(outImg,cvPoint(vertices[0].x,vertices[0].y),2,CV_RGB(0,0,100),-1,8,0);
+	circle(outImg,cvPoint(vertices[0].x,vertices[0].y),4,CV_RGB(0,0,100),-1,8,0);
 	for ( int i = 0; i < (int)vertices.size() - 1; i++ ) {
-		circle(outImg,cvPoint(vertices[i+1].x,vertices[i+1].y),2,CV_RGB(0,0,100),-1,8,0);
-		line(outImg,cvPoint(vertices[i].x,vertices[i].y),cvPoint(vertices[i+1].x,vertices[i+1].y),CV_RGB(100,0,0),1,8,0);
+		line(outImg,cvPoint(vertices[i].x,vertices[i].y),cvPoint(vertices[i+1].x,vertices[i+1].y),CV_RGB(100,0,0),2,8,0);
+		circle(outImg,cvPoint(vertices[i+1].x,vertices[i+1].y),4,CV_RGB(0,0,100),-1,8,0);
 	}
 }
 

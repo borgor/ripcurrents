@@ -37,6 +37,8 @@ int main(int argc, char** argv) {
 	}
 
 	// compute_streaklines(video);
+	// compute_timelines(video);
+	// compute_subtructAverageVector(video);
 	compute_populationMap(video);
 
 	return 0;
@@ -453,7 +455,7 @@ int compute_timelines(VideoCapture video) {
 		timeline.runLK(u_prev, u_current, outImg);
 
 		imshow("timelines", outImg);
-		// video_output.write(resized_frame);
+		video_output.write(outImg);
 		
 		// prepare for next frame
 		u_current.copyTo(u_prev);
@@ -539,7 +541,7 @@ int compute_subtructAverageVector(VideoCapture video) {
 		vectorToColor(current, outImg);
 		
 		imshow("subtruct average vector",outImg);
-		//video_output.write(outImg);
+		video_output.write(outImg);
 		
 		
 		// prepare for next frame
