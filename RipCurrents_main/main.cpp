@@ -37,9 +37,10 @@ int main(int argc, char** argv) {
 	}
 
 	// compute_streaklines(video);
+	// compute_streamlines(video);
 	// compute_timelines(video);
-	// compute_subtructAverageVector(video);
-	compute_populationMap(video);
+	 compute_subtructAverageVector(video);
+	// compute_populationMap(video);
 
 	return 0;
 }
@@ -401,9 +402,9 @@ int validate_streamlines(VideoCapture video) {
 int compute_timelines(VideoCapture video) {
 
 	// @ params
-	Pixel2 lineStart = Pixel2(100,100);
-	Pixel2 lineEnd = Pixel2(400,100);
-	int numberOfVertices = 5;
+	Pixel2 lineStart = Pixel2(100,180);
+	Pixel2 lineEnd = Pixel2(500,250);
+	int numberOfVertices = 20;
 
 	// set up output videos
 	String video_name = "timelines";
@@ -501,12 +502,43 @@ int compute_subtructAverageVector(VideoCapture video) {
 	UMat u_prev;		// UMat previous frame
 	UMat u_flow;		// output velocity field of OpticalFlow
 
+	// streamlines matrices
+	Mat streamoverlay = Mat::zeros(Size(XDIM, YDIM), CV_8UC1);
+	Mat streamoverlay_color = Mat::zeros(Size(XDIM, YDIM), CV_8UC3);
+	int totalframes = (int) video.get(CAP_PROP_FRAME_COUNT);
+
+	// Histogram
+	// Some thresholds to mask out any remaining jitter, and strong waves. Don't know how to calculate them at runtime, so they're arbitrary.
+	float LOWER =  0.2;
+	float MID  = .5;
+	int hist[HIST_BINS] = {0};	//histogram
+	int histsum = 0;
+	float UPPER = 45.0;		// UPPER can be determined programmatically
+	int hist2d[HIST_DIRECTIONS][HIST_BINS] = {{0}};
+	int histsum2d[HIST_DIRECTIONS] = {0};
+	float UPPER2d[HIST_DIRECTIONS] = {0};
+
+	float prop_above_upper[HIST_DIRECTIONS] = {0};
+
 	// Preload a frame
 	video.read(frame);
 	if(frame.empty()) exit(1);
 	resize(frame,resized_frame,Size(XDIM,YDIM),0,0,INTER_AREA);
 	cvtColor(resized_frame,grayscaled_frame,COLOR_BGR2GRAY);
 	grayscaled_frame.copyTo(u_prev);
+
+	// discrete streamline seed points
+	# define MAX_STREAMLINES 40
+	Pixel2 streampt[MAX_STREAMLINES];
+	int streamlines = MAX_STREAMLINES/2;
+
+	sranddev();
+	for(int s = 0; s < streamlines; s++){
+		streampt[s] = Pixel2(rand()%XDIM,rand()%YDIM);
+	}
+	// original seed point
+	// streamlines = 1;
+	// streampt[0] = Pixel2(300,300);
 
 
 	namedWindow("streamlines", WINDOW_AUTOSIZE );
@@ -538,10 +570,21 @@ int compute_subtructAverageVector(VideoCapture video) {
 		resized_frame.copyTo(outImg);
 
 		subtructAverage(current);
+
+		// draw streamlines
+		Mat streamout;
+		resized_frame.copyTo(streamout);
+		get_streamlines(streamout, streamoverlay_color, streamoverlay, streamlines, streampt, framecount, totalframes, current, UPPER, prop_above_upper);
+		imshow("streamlines",streamout);
+		video_output.write(streamout);
+
+
+		/*
 		vectorToColor(current, outImg);
 		
 		imshow("subtruct average vector",outImg);
 		video_output.write(outImg);
+		*/
 		
 		
 		// prepare for next frame

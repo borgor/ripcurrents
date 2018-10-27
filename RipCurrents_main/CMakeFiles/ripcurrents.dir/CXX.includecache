@@ -6,6 +6,20 @@
 
 #IncludeRegexTransform: 
 
+/Users/moriissei/Desktop/UCSC/Research/RipCurrent/ripcurrents/RipCurrents_main/Streakline.cpp
+opencv2/opencv.hpp
+-
+opencv2/core/ocl.hpp
+-
+cmath
+-
+Streakline.hpp
+/Users/moriissei/Desktop/UCSC/Research/RipCurrent/ripcurrents/RipCurrents_main/Streakline.hpp
+ripcurrents.hpp
+/Users/moriissei/Desktop/UCSC/Research/RipCurrent/ripcurrents/RipCurrents_main/ripcurrents.hpp
+
+/Users/moriissei/Desktop/UCSC/Research/RipCurrent/ripcurrents/RipCurrents_main/Streakline.hpp
+
 /Users/moriissei/Desktop/UCSC/Research/RipCurrent/ripcurrents/RipCurrents_main/main.cpp
 math.h
 -
@@ -19,6 +33,8 @@ math.h
 -
 vector
 -
+time.h
+-
 opencv2/opencv.hpp
 -
 opencv2/core/ocl.hpp
@@ -27,6 +43,8 @@ opencv2/optflow/motempl.hpp
 -
 ripcurrents.hpp
 /Users/moriissei/Desktop/UCSC/Research/RipCurrent/ripcurrents/RipCurrents_main/ripcurrents.hpp
+Streakline.hpp
+/Users/moriissei/Desktop/UCSC/Research/RipCurrent/ripcurrents/RipCurrents_main/Streakline.hpp
 
 /Users/moriissei/Desktop/UCSC/Research/RipCurrent/ripcurrents/RipCurrents_main/ripcurrents.hpp
 
