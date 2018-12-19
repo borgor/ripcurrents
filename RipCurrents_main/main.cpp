@@ -18,7 +18,9 @@ int compute_streamlines(VideoCapture video);
 int validate_streamlines(VideoCapture video);
 int compute_timelines(VideoCapture video);
 int compute_subtructAverageVector(VideoCapture video);
+int timelinesOnSubtractAverageVector(VideoCapture video);
 int compute_populationMap(VideoCapture video);
+int compute_timelinesFarne(VideoCapture video);
 
 int main(int argc, char** argv) {
 
@@ -41,6 +43,7 @@ int main(int argc, char** argv) {
 	// compute_timelines(video);
 	 compute_subtructAverageVector(video);
 	// compute_populationMap(video);
+	// compute_timelinesFarne(video);
 
 	return 0;
 }
@@ -570,6 +573,139 @@ int compute_subtructAverageVector(VideoCapture video) {
 		resized_frame.copyTo(outImg);
 
 		subtructAverage(current);
+		
+
+		// draw streamlines
+		Mat streamout;
+		resized_frame.copyTo(streamout);
+		// get_streamlines(streamout, streamoverlay_color, streamoverlay, streamlines, streampt, framecount, totalframes, current, UPPER, prop_above_upper);
+		// imshow("streamlines",streamout);
+		// video_output.write(streamout);
+
+
+		
+		vectorToColor(current, outImg);
+
+		drawFrameCount(outImg, framecount);
+		
+		imshow("subtruct average vector",outImg);
+		video_output.write(outImg);
+		
+		
+		
+		// prepare for next frame
+		u_current.copyTo(u_prev);
+
+		// end with Esc key on any window
+		int c = waitKey(1);
+		if ( c == 27) break;
+
+		// stop and restart with any key
+		if ( c != -1 && c != 27 ) {
+			waitKey(0);
+		}
+
+	}
+
+	// clean up
+	video_output.release();
+	destroyAllWindows();
+	current.release();
+
+	return 0;
+}
+
+int timelinesOnSubtractAverageVector(VideoCapture video) {
+
+	// set up output videos
+	String video_name = "subtructAverageVector";
+	VideoWriter video_output( video_name + ".mp4",CV_FOURCC('X','2','6','4'), 30, cv::Size(XDIM,YDIM),true);
+
+	if (!video_output.isOpened())
+	{
+		std::cout << "!!! Output video could not be opened" << std::endl;
+		return -1;
+	}
+
+	// OpenCV matrices to load images
+	Mat frame;			// raw current frame image
+	Mat resized_frame;	// resized current frame image
+	Mat grayscaled_frame;			// gray scaled current frame image
+	Mat current;		// Mat output velocity field of OpticalFlow
+	
+	// OpenCL/GPU matrices
+	UMat u_current;		// UMat current frame
+	UMat u_prev;		// UMat previous frame
+	UMat u_flow;		// output velocity field of OpticalFlow
+
+	// streamlines matrices
+	Mat streamoverlay = Mat::zeros(Size(XDIM, YDIM), CV_8UC1);
+	Mat streamoverlay_color = Mat::zeros(Size(XDIM, YDIM), CV_8UC3);
+	int totalframes = (int) video.get(CAP_PROP_FRAME_COUNT);
+
+	// Histogram
+	// Some thresholds to mask out any remaining jitter, and strong waves. Don't know how to calculate them at runtime, so they're arbitrary.
+	float LOWER =  0.2;
+	float MID  = .5;
+	int hist[HIST_BINS] = {0};	//histogram
+	int histsum = 0;
+	float UPPER = 45.0;		// UPPER can be determined programmatically
+	int hist2d[HIST_DIRECTIONS][HIST_BINS] = {{0}};
+	int histsum2d[HIST_DIRECTIONS] = {0};
+	float UPPER2d[HIST_DIRECTIONS] = {0};
+
+	float prop_above_upper[HIST_DIRECTIONS] = {0};
+
+	// Preload a frame
+	video.read(frame);
+	if(frame.empty()) exit(1);
+	resize(frame,resized_frame,Size(XDIM,YDIM),0,0,INTER_AREA);
+	cvtColor(resized_frame,grayscaled_frame,COLOR_BGR2GRAY);
+	grayscaled_frame.copyTo(u_prev);
+
+	// discrete streamline seed points
+	# define MAX_STREAMLINES 40
+	Pixel2 streampt[MAX_STREAMLINES];
+	int streamlines = MAX_STREAMLINES/2;
+
+	sranddev();
+	for(int s = 0; s < streamlines; s++){
+		streampt[s] = Pixel2(rand()%XDIM,rand()%YDIM);
+	}
+	// original seed point
+	// streamlines = 1;
+	// streampt[0] = Pixel2(300,300);
+
+
+	namedWindow("streamlines", WINDOW_AUTOSIZE );
+
+	int framecount = 0;
+	// read and process every frame
+	for( framecount = 1; true; framecount++){
+
+		// read current frame
+		video.read(frame);
+		printf("Frames read : %d\n",framecount);
+		
+		if(frame.empty()) break;
+		
+
+		// prepare input image
+		resize(frame,resized_frame,Size(XDIM,YDIM),0,0,INTER_LINEAR);
+		cvtColor(resized_frame,grayscaled_frame,COLOR_BGR2GRAY);
+		grayscaled_frame.copyTo(u_current);
+
+
+		// Run optical flow farneback
+		calcOpticalFlowFarneback(u_prev, u_current, u_flow, 0.5, 2, 3, 2, 15, 1.2, OPTFLOW_FARNEBACK_GAUSSIAN);
+		current = u_flow.getMat(ACCESS_READ);
+
+
+		// draw streamlines
+		Mat outImg;
+		resized_frame.copyTo(outImg);
+
+		subtructAverage(current);
 
 		// draw streamlines
 		Mat streamout;
@@ -687,4 +823,156 @@ int compute_populationMap(VideoCapture video) {
 	destroyAllWindows();
 
 	return 1;
+}
+
+int compute_timelinesFarne(VideoCapture video) {
+	
+
+	// @ params
+	Pixel2 lineStart = Pixel2(100,180);
+	Pixel2 lineEnd = Pixel2(500,250);
+	int numberOfVertices = 20;
+
+	// discrete streamline seed points
+	Pixel2 streampt[numberOfVertices];
+
+	// define the distance between each vertices
+	float diffX = (lineEnd.x - lineStart.x) / numberOfVertices;
+	float diffY = (lineEnd.y - lineStart.y) / numberOfVertices;
+
+	// create and push Pixel2 points
+	for (int i = 0; i <= numberOfVertices; i++)
+	{
+		streampt[i] = Pixel2(lineStart.x + diffX * i, lineStart.y + diffY * i);
+	}
+
+
+	// set up output videos
+	String video_name = "timelinesFarneSubtractAve";
+	VideoWriter video_output( video_name + ".mp4",CV_FOURCC('X','2','6','4'), 30, cv::Size(XDIM,YDIM),true);
+
+	if (!video_output.isOpened())
+	{
+		std::cout << "!!! Output video could not be opened" << std::endl;
+		return -1;
+	}
+
+	// OpenCV matrices to load images
+	Mat frame;			// raw current frame image
+	Mat resized_frame;	// resized current frame image
+	Mat grayscaled_frame;			// gray scaled current frame image
+	Mat current = Mat::zeros(YDIM,XDIM,CV_32FC2);;		// Mat output velocity field of OpticalFlow
+	
+	// OpenCL/GPU matrices
+	UMat u_current;		// UMat current frame
+	UMat u_prev;		// UMat previous frame
+	UMat u_flow;		// output velocity field of OpticalFlow
+
+	// streamlines matrices
+	Mat streamoverlay = Mat::zeros(Size(XDIM, YDIM), CV_8UC1);
+	Mat streamoverlay_color = Mat::zeros(Size(XDIM, YDIM), CV_8UC3);
+	int totalframes = (int) video.get(CAP_PROP_FRAME_COUNT);
+	
+
+	// Histogram
+	// Some thresholds to mask out any remaining jitter, and strong waves. Don't know how to calculate them at runtime, so they're arbitrary.
+	float LOWER =  0.2;
+	float MID  = .5;
+	int hist[HIST_BINS] = {0};	//histogram
+	int histsum = 0;
+	float UPPER = 45.0;		// UPPER can be determined programmatically
+	int hist2d[HIST_DIRECTIONS][HIST_BINS] = {{0}};
+	int histsum2d[HIST_DIRECTIONS] = {0};
+	float UPPER2d[HIST_DIRECTIONS] = {0};
+
+	float prop_above_upper[HIST_DIRECTIONS] = {0};
+
+
+	// Preload a frame
+	video.read(frame);
+	if(frame.empty()) exit(1);
+	resize(frame,resized_frame,Size(XDIM,YDIM),0,0,INTER_AREA);
+	cvtColor(resized_frame,grayscaled_frame,COLOR_BGR2GRAY);
+	grayscaled_frame.copyTo(u_prev);
+
+
+	namedWindow("streamlines", WINDOW_AUTOSIZE );
+
+	int framecount = 0;
+	// read and process every frame
+	for( framecount = 1; true; framecount++){
+
+		// read current frame
+		video.read(frame);
+		printf("Frames read : %d\n",framecount);
+		
+		if(frame.empty()) break;
+		
+
+		// prepare input image
+		resize(frame,resized_frame,Size(XDIM,YDIM),0,0,INTER_LINEAR);
+		cvtColor(resized_frame,grayscaled_frame,COLOR_BGR2GRAY);
+		grayscaled_frame.copyTo(u_current);
+
+
+		// Run optical flow farneback
+		calcOpticalFlowFarneback(u_prev, u_current, u_flow, 0.5, 2, 3, 2, 15, 1.2, OPTFLOW_FARNEBACK_GAUSSIAN);
+		current = u_flow.getMat(ACCESS_READ);
+
+
+		subtructAverage(current);
+
+		
+
+
+		// draw streamlines
+		Mat streamout;
+		resized_frame.copyTo(streamout);
+
+		
+
+
+		get_streamlines(streamout, streamoverlay_color, streamoverlay, numberOfVertices, streampt, framecount, totalframes, current, UPPER, prop_above_upper);
+		
+
+
+		Mat outImg;	// output image
+		resized_frame.copyTo(outImg);
+
+		// draw edges
+		circle(outImg,cvPoint(streampt[0].x,streampt[0].y),4,CV_RGB(0,0,100),-1,8,0);
+		for ( int i = 0; i < (int)numberOfVertices - 1; i++ ) {
+			line(outImg,cvPoint(streampt[i].x,streampt[i].y),cvPoint(streampt[i+1].x,streampt[i+1].y),CV_RGB(100,0,0),2,8,0);
+			circle(outImg,cvPoint(streampt[i+1].x,streampt[i+1].y),4,CV_RGB(0,0,100),-1,8,0);
+		}
+		
+		
+		imshow("streamlines",outImg);
+		video_output.write(outImg);
+		
+		
+		// prepare for next frame
+		u_current.copyTo(u_prev);
+
+
+		// Construct histograms to get thresholds
+		// Figure out what "slow" or "fast" is
+		//create_histogram(current,  hist, histsum, hist2d, histsum2d, UPPER, UPPER2d, prop_above_upper);
+
+		// end with Esc key on any window
+		int c = waitKey(1);
+		if ( c == 27) break;
+
+		// stop and restart with any key
+		if ( c != -1 && c != 27 ) {
+			waitKey(0);
+		}
+
+	}
+
+	// clean up
+	video_output.release();
+	destroyAllWindows();
+
+	return 0;
 }

@@ -809,8 +809,12 @@ void Timeline::runLK(UMat u_prev, UMat u_current, Mat& outImg) {
 void subtructAverage(Mat& current) {
 
 	Scalar average = mean(current);
+	printf("average ");
 	printf("%f ", average.val[0]);
 	printf("%f\n", average.val[1]);
+
+	float max_x = 0;
+	float max_y = 0;
 
 	for ( int row = 0; row < current.rows; row++ ){
 		Pixel2* ptr = current.ptr<Pixel2>(row, 0);
@@ -818,8 +822,21 @@ void subtructAverage(Mat& current) {
 			ptr->x -= average.val[0];
 			ptr->y -= average.val[1];
 			ptr++;
+
+			if ( abs(ptr->x) > abs(max_x) )
+				max_x = ptr->x;
+			if ( abs(ptr->y) > abs(max_y) )
+				max_y = ptr->y;
 		}
 	}
+
+	average = mean(current);
+	printf("after  ");
+	printf("%f ", average.val[0]);
+	printf("%f\n", average.val[1]);
+	printf("max  ");
+	printf("%f ", max_x);
+	printf("%f\n", max_y);
 }
 
 void vectorToColor(Mat& current, Mat& outImg) {
@@ -915,4 +932,9 @@ void PopulationMap::runLK(UMat u_prev, UMat u_current, Mat& outImg) {
 		circle(overlay,cvPoint(vertices[i].x,vertices[i].y),10,CV_RGB(100,0,0),-1,8,0);
 		addWeighted(overlay, opacity, outImg, 1 - opacity, 0, outImg, -1);
 	}
+}
+
+void drawFrameCount(Mat& outImg, int framecount) {
+	putText(outImg, to_string(framecount), cvPoint(30,30), 
+	FONT_HERSHEY_COMPLEX_SMALL, 0.8, cvScalar(0,0,250), 1, CV_AA);
 }

@@ -70,6 +70,8 @@ class Timeline {
 
 		// run LK method on each vertex and draw lines
 		void runLK(UMat u_prev, UMat u_current, Mat& outImg);
+
+		// void runFarneBack();
 };
 
 void subtructAverage(Mat& current);
@@ -87,5 +89,7 @@ class PopulationMap {
 		// run LK method on each vertex and draw lines
 		void runLK(UMat u_prev, UMat u_current, Mat& outImg);
 };
+
+void drawFrameCount(Mat& outImg, int framecount);
 
 #endif
