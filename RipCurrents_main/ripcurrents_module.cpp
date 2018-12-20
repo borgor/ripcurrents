@@ -70,7 +70,8 @@ void streamline_positions(Mat& streamlines_mat, Mat& streamline_density){
 // float prop_above_upper
 void get_streamlines(Mat& streamout, Mat& streamoverlay_color, Mat& streamoverlay, int streamlines, Pixel2 streampt[], int framecount, int totalframes, Mat& current, float UPPER, float prop_above_upper[]){
 	for(int s = 0; s < streamlines; s++){
-		streamline_2(streampt+s, Scalar(framecount*(255.0/totalframes)), current, streamoverlay, 0.1, 100, UPPER,prop_above_upper);
+		printf("%f\n", streampt[s].x);
+		streamline(streampt+s, Scalar(framecount*(255.0/totalframes)), current, streamoverlay, 0.1, 100, UPPER,prop_above_upper);
 	}
 	
 	applyColorMap(streamoverlay, streamoverlay_color, COLORMAP_RAINBOW);
@@ -516,7 +517,7 @@ void streamline(Pixel2 * pt, cv::Scalar color, cv::Mat flow, cv::Mat overlay, fl
 		if(r > UPPER){return;}
 		
 		
-		Pixel2 newpt = *pt + delta*dt/iterations;
+		Pixel2 newpt = *pt + delta*dt;
 		
 		cv::line(overlay,* pt, newpt, color, 1, 8, 0);
 		

@@ -22,6 +22,8 @@ int timelinesOnSubtractAverageVector(VideoCapture video);
 int compute_populationMap(VideoCapture video);
 int compute_timelinesFarne(VideoCapture video);
 
+String outputFileName = "default";
+
 int main(int argc, char** argv) {
 
 	//Video I/O
@@ -38,12 +40,16 @@ int main(int argc, char** argv) {
 		exit(1);
 	}
 
+	if (argc == 3){
+		outputFileName = argv[2];
+	}
+
 	// compute_streaklines(video);
 	// compute_streamlines(video);
 	// compute_timelines(video);
-	 compute_subtructAverageVector(video);
+	// compute_subtructAverageVector(video);
 	// compute_populationMap(video);
-	// compute_timelinesFarne(video);
+	 compute_timelinesFarne(video);
 
 	return 0;
 }
@@ -486,7 +492,7 @@ int compute_subtructAverageVector(VideoCapture video) {
 
 	// set up output videos
 	String video_name = "subtructAverageVector";
-	VideoWriter video_output( video_name + ".mp4",CV_FOURCC('X','2','6','4'), 30, cv::Size(XDIM,YDIM),true);
+	VideoWriter video_output( outputFileName + ".mp4",CV_FOURCC('X','2','6','4'), 30, cv::Size(XDIM,YDIM),true);
 
 	if (!video_output.isOpened())
 	{
@@ -564,7 +570,8 @@ int compute_subtructAverageVector(VideoCapture video) {
 
 
 		// Run optical flow farneback
-		calcOpticalFlowFarneback(u_prev, u_current, u_flow, 0.5, 2, 3, 2, 15, 1.2, OPTFLOW_FARNEBACK_GAUSSIAN);
+		// 0.5, 2, 3, 2, 15, 1.2
+		calcOpticalFlowFarneback(u_prev, u_current, u_flow, 0.5, 2, 20, 3, 15, 1.2, OPTFLOW_FARNEBACK_GAUSSIAN);
 		current = u_flow.getMat(ACCESS_READ);
 
 
@@ -849,7 +856,7 @@ int compute_timelinesFarne(VideoCapture video) {
 
 	// set up output videos
 	String video_name = "timelinesFarneSubtractAve";
-	VideoWriter video_output( video_name + ".mp4",CV_FOURCC('X','2','6','4'), 30, cv::Size(XDIM,YDIM),true);
+	VideoWriter video_output( outputFileName  + ".mp4",CV_FOURCC('X','2','6','4'), 30, cv::Size(XDIM,YDIM),true);
 
 	if (!video_output.isOpened())
 	{
@@ -916,11 +923,11 @@ int compute_timelinesFarne(VideoCapture video) {
 
 
 		// Run optical flow farneback
-		calcOpticalFlowFarneback(u_prev, u_current, u_flow, 0.5, 2, 3, 2, 15, 1.2, OPTFLOW_FARNEBACK_GAUSSIAN);
+		calcOpticalFlowFarneback(u_prev, u_current, u_flow, 0.5, 2, 20, 3, 15, 1.2, OPTFLOW_FARNEBACK_GAUSSIAN);
 		current = u_flow.getMat(ACCESS_READ);
 
 
-		subtructAverage(current);
+		// subtructAverage(current);
 
 		
 
@@ -935,7 +942,6 @@ int compute_timelinesFarne(VideoCapture video) {
 		get_streamlines(streamout, streamoverlay_color, streamoverlay, numberOfVertices, streampt, framecount, totalframes, current, UPPER, prop_above_upper);
 		
 
-
 		Mat outImg;	// output image
 		resized_frame.copyTo(outImg);
 
@@ -946,6 +952,7 @@ int compute_timelinesFarne(VideoCapture video) {
 			circle(outImg,cvPoint(streampt[i+1].x,streampt[i+1].y),4,CV_RGB(0,0,100),-1,8,0);
 		}
 		
+		drawFrameCount(outImg, framecount);
 		
 		imshow("streamlines",outImg);
 		video_output.write(outImg);
