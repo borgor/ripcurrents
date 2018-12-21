@@ -810,34 +810,78 @@ void Timeline::runLK(UMat u_prev, UMat u_current, Mat& outImg) {
 void subtructAverage(Mat& current) {
 
 	Scalar average = mean(current);
+	/*
 	printf("average ");
 	printf("%f ", average.val[0]);
 	printf("%f\n", average.val[1]);
+	*/
 
 	float max_x = 0;
 	float max_y = 0;
+	float min_x = 0;
+	float min_y = 0;
+
+	float ini_max_x = 0;
+	float ini_max_y = 0;
+	float ini_min_x = 0;
+	float ini_min_y = 0;
 
 	for ( int row = 0; row < current.rows; row++ ){
 		Pixel2* ptr = current.ptr<Pixel2>(row, 0);
 		for ( int col = 0; col < current.cols; col++){
-			ptr->x -= average.val[0];
-			ptr->y -= average.val[1];
-			ptr++;
 
-			if ( abs(ptr->x) > abs(max_x) )
+			if ( ptr->x > ini_max_x )
+				ini_max_x = ptr->x;
+			if ( ptr->y > ini_max_y )
+				ini_max_y = ptr->y;
+			if ( ptr->x < ini_min_x )
+				ini_min_x = ptr->x;
+			if ( ptr->y < ini_min_y )
+				ini_min_y = ptr->y;
+
+			float tx = ptr->x - average.val[0];
+			float ty = ptr->y - average.val[1];
+
+			float proj = (ptr->x * tx + ptr->y * ty) / (ptr->x * ptr->x + ptr->y * ptr->y);
+
+			if(ptr->x > 0.001 || ptr->y > 0.001) {
+				ptr->x = ptr->x * proj;
+				ptr->y = ptr->y * proj;
+			}
+
+
+			if ( ptr->x > max_x )
 				max_x = ptr->x;
-			if ( abs(ptr->y) > abs(max_y) )
+			if ( ptr->y > max_y )
 				max_y = ptr->y;
+			if ( ptr->x < min_x )
+				min_x = ptr->x;
+			if ( ptr->y < min_y )
+				min_y = ptr->y;
+			
+			ptr++;
 		}
 	}
 
+	/*
 	average = mean(current);
 	printf("after  ");
 	printf("%f ", average.val[0]);
 	printf("%f\n", average.val[1]);
+	printf("ini max  ");
+	printf("%f ", ini_max_x);
+	printf("%f\n", ini_max_y);
+	printf("ini min  ");
+	printf("%f ", ini_min_x);
+	printf("%f\n", ini_min_y);
 	printf("max  ");
 	printf("%f ", max_x);
 	printf("%f\n", max_y);
+	printf("min  ");
+	printf("%f ", min_x);
+	printf("%f\n", min_y);
+	*/
+	
 }
 
 void vectorToColor(Mat& current, Mat& outImg) {
