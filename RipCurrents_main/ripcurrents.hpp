@@ -76,6 +76,8 @@ class Timeline {
 
 void subtructAverage(Mat& current);
 
+void subtructMeanMagnitude(Mat& current);
+
 void vectorToColor(Mat& current, Mat& outImg);
 
 
