@@ -841,10 +841,17 @@ void subtructAverage(Mat& current) {
 
 			float tx = ptr->x - average.val[0];
 			float ty = ptr->y - average.val[1];
+			
 
-			float proj = (ptr->x * tx + ptr->y * ty) / (ptr->x * ptr->x + ptr->y * ptr->y);
+			if (ptr->x * ptr->x + ptr->y * ptr->y == 0)
+			{
+				ptr->x = tx;
+				ptr->y = ty;
+			}
+			else 
+			{
+				float proj = (ptr->x * tx + ptr->y * ty) / (ptr->x * ptr->x + ptr->y * ptr->y);
 
-			if(ptr->x > 0.001 || ptr->y > 0.001) {
 				ptr->x = ptr->x * proj;
 				ptr->y = ptr->y * proj;
 			}
@@ -938,8 +945,8 @@ void subtructMeanMagnitude(Mat& current) {
 
 			if (magnitude == 0)
 			{
-				unit_x = 0;
-				unit_y = 0;
+				unit_x = 0.0;
+				unit_y = 0.0;
 			}
 			else
 			{

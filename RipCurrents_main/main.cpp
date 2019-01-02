@@ -1088,7 +1088,7 @@ int compute_subtructAverageVectorWithWindow(VideoCapture video) {
 		Mat outImg;
 		resized_frame.copyTo(outImg);
 
-		//subtructAverage(current);
+		// subtructAverage(current);
 		subtructMeanMagnitude(current);
 		
 		
