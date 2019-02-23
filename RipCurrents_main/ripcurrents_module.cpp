@@ -843,6 +843,7 @@ void subtructAverage(Mat& current) {
 			float ty = ptr->y - average.val[1];
 			
 
+			/*
 			if (ptr->x * ptr->x + ptr->y * ptr->y == 0)
 			{
 				ptr->x = tx;
@@ -855,6 +856,11 @@ void subtructAverage(Mat& current) {
 				ptr->x = ptr->x * proj;
 				ptr->y = ptr->y * proj;
 			}
+			*/
+
+
+			ptr->x = ptr->x - average.val[0];
+			ptr->y = ptr->y - average.val[1];
 
 
 			if ( ptr->x > max_x )

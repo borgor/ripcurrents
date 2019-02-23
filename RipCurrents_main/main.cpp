@@ -1048,7 +1048,7 @@ int compute_subtructAverageVectorWithWindow(VideoCapture video) {
 	// streamlines = 1;
 	// streampt[0] = Pixel2(300,300);
 
-	int windowSize = 50;
+	int windowSize = 200;
 	int currentBuffer = 0;
 	vector<Mat> buffer;
 	Mat averageCurrent = Mat::zeros(YDIM,XDIM,CV_32FC2);
@@ -1060,6 +1060,9 @@ int compute_subtructAverageVectorWithWindow(VideoCapture video) {
 
 
 	namedWindow("streamlines", WINDOW_AUTOSIZE );
+
+    Mat color_wheel = imread("colorWheel.jpg");
+    resize(color_wheel, color_wheel, Size(YDIM/8, YDIM/8));
 
 	int framecount = 0;
 	// read and process every frame
@@ -1088,8 +1091,8 @@ int compute_subtructAverageVectorWithWindow(VideoCapture video) {
 		Mat outImg;
 		resized_frame.copyTo(outImg);
 
-		// subtructAverage(current);
-		subtructMeanMagnitude(current);
+		subtructAverage(current);
+		// subtructMeanMagnitude(current);
 		
 		
 
@@ -1119,6 +1122,10 @@ int compute_subtructAverageVectorWithWindow(VideoCapture video) {
 		vectorToColor(averageCurrent, outImg);
 
 		drawFrameCount(outImg, framecount);
+
+        // Draw color wheel
+        Mat mat = (Mat_<double>(2,3)<<1.0, 0.0, XDIM - YDIM/8, 0.0, 1.0, 0);
+        warpAffine(color_wheel, outImg, mat, outImg.size(), CV_INTER_LINEAR, cv::BORDER_TRANSPARENT);
 		
 		imshow("subtruct average vector",outImg);
 		video_output.write(outImg);
