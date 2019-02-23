@@ -1032,7 +1032,8 @@ void vectorToColor(Mat& current, Mat& outImg) {
 			// store vector data
 			ptr2->x = theta / 2;
 			ptr2->y = 255;
-			ptr2->z = sqrt(ptr->x * ptr->x + ptr->y * ptr->y)*255/max_displacement * 10;
+			//ptr2->z = sqrt(ptr->x * ptr->x + ptr->y * ptr->y)*255/max_displacement * 10;
+			ptr2->z = 255;
 			//if ( ptr2->z < 30 ) ptr2->z = 0;
 
 			// store the previous max to maxmin next frame
@@ -1111,5 +1112,5 @@ void PopulationMap::runLK(UMat u_prev, UMat u_current, Mat& outImg) {
 
 void drawFrameCount(Mat& outImg, int framecount) {
 	putText(outImg, to_string(framecount), cvPoint(30,30), 
-	FONT_HERSHEY_COMPLEX_SMALL, 0.8, cvScalar(0,0,250), 1, CV_AA);
+	FONT_HERSHEY_COMPLEX_SMALL, 0.8, cvScalar(250,250,250), 1, CV_AA);
 }
