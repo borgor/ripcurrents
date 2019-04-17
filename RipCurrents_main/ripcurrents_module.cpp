@@ -1032,7 +1032,8 @@ void vectorToColor(Mat& current, Mat& outImg) {
 			// store vector data
 			ptr2->x = theta / 2;
 			ptr2->y = 255;
-			ptr2->z = sqrt(ptr->x * ptr->x + ptr->y * ptr->y)*128/max_displacement+128;
+			//ptr2->z = sqrt(ptr->x * ptr->x + ptr->y * ptr->y)*128/max_displacement+128;
+            ptr2->z = sqrt(ptr->x * ptr->x + ptr->y * ptr->y)*255/max_displacement;
 			// ptr2->z = 255;
 			//if ( ptr2->z < 30 ) ptr2->z = 0;
 

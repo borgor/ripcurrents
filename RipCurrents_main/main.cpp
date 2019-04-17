@@ -1048,7 +1048,7 @@ int compute_subtructAverageVectorWithWindow(VideoCapture video) {
 	// streamlines = 1;
 	// streampt[0] = Pixel2(300,300);
 
-	int windowSize = 200;
+	int windowSize = 400;
 	int currentBuffer = 0;
 	vector<Mat> buffer;
 	Mat averageCurrent = Mat::zeros(YDIM,XDIM,CV_32FC2);
@@ -1083,13 +1083,15 @@ int compute_subtructAverageVectorWithWindow(VideoCapture video) {
 
 		// Run optical flow farneback
 		// 0.5, 2, 3, 2, 15, 1.2
-		calcOpticalFlowFarneback(u_prev, u_current, u_flow, 0.5, 2, 20, 3, 15, 1.2, OPTFLOW_FARNEBACK_GAUSSIAN);
+		calcOpticalFlowFarneback(u_prev, u_current, u_flow, 0.5, 2, 10, 3, 15, 1.2, OPTFLOW_FARNEBACK_GAUSSIAN);
 		current = u_flow.getMat(ACCESS_READ);
 
 
 		// draw streamlines
 		Mat outImg;
+		Mat outImg_overlay;
 		resized_frame.copyTo(outImg);
+		resized_frame.copyTo(outImg_overlay);
 
 		// subtructAverage(current);
 		// subtructMeanMagnitude(current);
@@ -1098,7 +1100,7 @@ int compute_subtructAverageVectorWithWindow(VideoCapture video) {
 
 		// draw streamlines
 		Mat streamout;
-		resized_frame.copyTo(streamout);
+		// resized_frame.copyTo(outImg);
 		// get_streamlines(streamout, streamoverlay_color, streamoverlay, streamlines, streampt, framecount, totalframes, current, UPPER, prop_above_upper);
 		// imshow("streamlines",streamout);
 		// video_output.write(streamout);
@@ -1117,16 +1119,17 @@ int compute_subtructAverageVectorWithWindow(VideoCapture video) {
 		currentBuffer++;
 		if ( currentBuffer >= windowSize ) currentBuffer = 0;
 
-
 		
-		vectorToColor(averageCurrent, outImg);
+		vectorToColor(averageCurrent, outImg_overlay);
 
-		drawFrameCount(outImg, framecount);
+		drawFrameCount(outImg_overlay, framecount);
 
         // Draw color wheel
         Mat mat = (Mat_<double>(2,3)<<1.0, 0.0, XDIM - YDIM/8, 0.0, 1.0, 0);
-        warpAffine(color_wheel, outImg, mat, outImg.size(), CV_INTER_LINEAR, cv::BORDER_TRANSPARENT);
+        warpAffine(color_wheel, outImg_overlay, mat, outImg_overlay.size(), CV_INTER_LINEAR, cv::BORDER_TRANSPARENT);
 		
+   		addWeighted( outImg, 0.5, outImg_overlay, 0.5, 0.0, outImg);
+
 		imshow("subtruct average vector",outImg);
 		video_output.write(outImg);
 		
