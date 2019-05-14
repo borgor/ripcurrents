@@ -1017,6 +1017,7 @@ void subtructMeanMagnitude(Mat& current) {
 void vectorToColor(Mat& current, Mat& outImg) {
 
 	static float max_displacement = 0;
+	float max_displacement_new = 0;
 
 	float global_theta = 0;
 	float global_magnitude = 0;
@@ -1038,7 +1039,7 @@ void vectorToColor(Mat& current, Mat& outImg) {
 			//if ( ptr2->z < 30 ) ptr2->z = 0;
 
 			// store the previous max to maxmin next frame
-			if ( sqrt(ptr->x * ptr->x + ptr->y * ptr->y) > max_displacement ) max_displacement = sqrt(ptr->x * ptr->x + ptr->y * ptr->y);
+			if ( sqrt(ptr->x * ptr->x + ptr->y * ptr->y) > max_displacement_new ) max_displacement_new = sqrt(ptr->x * ptr->x + ptr->y * ptr->y);
 
 			global_theta += ptr2->x * ptr2->z;
 			global_magnitude += ptr2->z;
@@ -1048,6 +1049,85 @@ void vectorToColor(Mat& current, Mat& outImg) {
 			ptr2++;
 		}
 	}
+
+	max_displacement = max_displacement_new;
+
+	// show as hsv format
+	cvtColor(outImg, outImg, CV_HSV2BGR);
+}
+
+void shearRateToColor(Mat& current, Mat& outImg) {
+
+	static float max_displacement = 0.0;
+	static float max_frobeniusNorm = 0.0;
+	float max_frobeniusNorm_new = 0.0;
+
+	float global_theta = 0;
+	float global_magnitude = 0;
+
+	// Iterate through all pixels except for the very edge
+	for ( int row = 1; row < current.rows - 1; row++ ) {
+		Pixel2* ptr = current.ptr<Pixel2>(row, 0);
+		Pixelc* ptr2 = outImg.ptr<Pixelc>(row, 0);
+
+		for ( int col = 1; col < current.cols - 1; col++ ) {
+
+			// obtain the neighbor vectors
+			Pixel2 above = current.at<Pixel2>(row-1, col);
+			Pixel2 below = current.at<Pixel2>(row+1, col);
+			Pixel2 left = current.at<Pixel2>(row, col-1);
+			Pixel2 right = current.at<Pixel2>(row, col+1);
+
+			// Find the velocity gradient matrix
+			/*
+			/ | dvx/dx dvx/dy |
+ 			/ | dvy/dx dvy/dy |
+			*/
+			Mat jacobian = Mat_<Pixel2>(2,2);
+			jacobian.at<float>(0,0) = right.x - left.x;
+			jacobian.at<float>(0,1) = above.x - below.x;
+			jacobian.at<float>(1,0) = right.y - left.y;
+			jacobian.at<float>(1,1) = above.x - below.x;
+
+			// printf("%f\n",sqrt(jacobian.dot(jacobian)));
+
+			Mat jacobianS = Mat_<Pixel2>(2,2);
+			jacobianS.at<float>(0.0) = (jacobian.at<float>(0,0) + jacobian.at<float>(0,0)) / 2;
+			jacobianS.at<float>(0,1) = (jacobian.at<float>(0,1) + jacobian.at<float>(1,0)) / 2;
+			jacobianS.at<float>(1,0) = (jacobian.at<float>(1,0) + jacobian.at<float>(0,1)) / 2;
+			jacobianS.at<float>(1,1) = (jacobian.at<float>(1,1) + jacobian.at<float>(1,1)) / 2;
+
+			//float frobeniusNorm = sqrt(sum(jacobian.mul(jacobian))[0]);
+			float frobeniusNorm = jacobianS.at<float>(0,0) * jacobianS.at<float>(0,0)
+							+ jacobianS.at<float>(0,1) * jacobianS.at<float>(0,1)
+							+ jacobianS.at<float>(1,0) * jacobianS.at<float>(1,0)
+							+ jacobianS.at<float>(1,1) * jacobianS.at<float>(1,1);
+			frobeniusNorm = sqrt(frobeniusNorm);
+
+			float theta = atan2(ptr->y, ptr->x)*180/M_PI;	// find angle
+			theta += theta < 0 ? 360 : 0;	// enforce strict positive angle
+			
+			// store vector data
+			ptr2->x = 128 - frobeniusNorm*128/max_frobeniusNorm;
+			ptr2->y = 255;
+            ptr2->z = 255;
+			// ptr2->z = 255;
+			//if ( ptr2->z < 30 ) ptr2->z = 0;
+
+			// store the previous max to maxmin next frame
+			if ( sqrt(ptr->x * ptr->x + ptr->y * ptr->y) > max_displacement ) max_displacement = sqrt(ptr->x * ptr->x + ptr->y * ptr->y);
+			if (frobeniusNorm > max_frobeniusNorm_new) max_frobeniusNorm_new = frobeniusNorm;
+	
+			global_theta += ptr2->x * ptr2->z;
+			global_magnitude += ptr2->z;
+
+
+			ptr++;
+			ptr2++;
+		}
+	}
+
+	max_frobeniusNorm = max_frobeniusNorm_new;
 
 	// show as hsv format
 	cvtColor(outImg, outImg, CV_HSV2BGR);

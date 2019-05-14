@@ -80,6 +80,8 @@ void subtructMeanMagnitude(Mat& current);
 
 void vectorToColor(Mat& current, Mat& outImg);
 
+void shearRateToColor(Mat& current, Mat& outImg);
+
 
 class PopulationMap {
 	public:
