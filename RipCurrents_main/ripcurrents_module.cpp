@@ -1065,18 +1065,20 @@ void shearRateToColor(Mat& current, Mat& outImg) {
 	float global_theta = 0;
 	float global_magnitude = 0;
 
-	// Iterate through all pixels except for the very edge
-	for ( int row = 1; row < current.rows - 1; row++ ) {
-		Pixel2* ptr = current.ptr<Pixel2>(row, 0);
-		Pixelc* ptr2 = outImg.ptr<Pixelc>(row, 0);
+	int offset = 10;
 
-		for ( int col = 1; col < current.cols - 1; col++ ) {
+	// Iterate through all pixels except for the very edge
+	for ( int row = offset; row < current.rows - offset; row++ ) {
+		Pixel2* ptr = current.ptr<Pixel2>(row, offset);
+		Pixelc* ptr2 = outImg.ptr<Pixelc>(row, offset);
+
+		for ( int col = offset; col < current.cols - offset; col++ ) {
 
 			// obtain the neighbor vectors
-			Pixel2 above = current.at<Pixel2>(row-1, col);
-			Pixel2 below = current.at<Pixel2>(row+1, col);
-			Pixel2 left = current.at<Pixel2>(row, col-1);
-			Pixel2 right = current.at<Pixel2>(row, col+1);
+			Pixel2 above = current.at<Pixel2>(row-offset, col);
+			Pixel2 below = current.at<Pixel2>(row+offset, col);
+			Pixel2 left = current.at<Pixel2>(row, col-offset);
+			Pixel2 right = current.at<Pixel2>(row, col+offset);
 
 			// Find the velocity gradient matrix
 			/*
@@ -1087,21 +1089,23 @@ void shearRateToColor(Mat& current, Mat& outImg) {
 			jacobian.at<float>(0,0) = right.x - left.x;
 			jacobian.at<float>(0,1) = above.x - below.x;
 			jacobian.at<float>(1,0) = right.y - left.y;
-			jacobian.at<float>(1,1) = above.x - below.x;
+			jacobian.at<float>(1,1) = above.y - below.y;
 
 			// printf("%f\n",sqrt(jacobian.dot(jacobian)));
 
+			/*
 			Mat jacobianS = Mat_<Pixel2>(2,2);
 			jacobianS.at<float>(0.0) = (jacobian.at<float>(0,0) + jacobian.at<float>(0,0)) / 2;
 			jacobianS.at<float>(0,1) = (jacobian.at<float>(0,1) + jacobian.at<float>(1,0)) / 2;
 			jacobianS.at<float>(1,0) = (jacobian.at<float>(1,0) + jacobian.at<float>(0,1)) / 2;
 			jacobianS.at<float>(1,1) = (jacobian.at<float>(1,1) + jacobian.at<float>(1,1)) / 2;
+			*/
 
 			//float frobeniusNorm = sqrt(sum(jacobian.mul(jacobian))[0]);
-			float frobeniusNorm = jacobianS.at<float>(0,0) * jacobianS.at<float>(0,0)
-							+ jacobianS.at<float>(0,1) * jacobianS.at<float>(0,1)
-							+ jacobianS.at<float>(1,0) * jacobianS.at<float>(1,0)
-							+ jacobianS.at<float>(1,1) * jacobianS.at<float>(1,1);
+			float frobeniusNorm = jacobian.at<float>(0,0) * jacobian.at<float>(0,0)
+							+ jacobian.at<float>(0,1) * jacobian.at<float>(0,1)
+							+ jacobian.at<float>(1,0) * jacobian.at<float>(1,0)
+							+ jacobian.at<float>(1,1) * jacobian.at<float>(1,1);
 			frobeniusNorm = sqrt(frobeniusNorm);
 
 			float theta = atan2(ptr->y, ptr->x)*180/M_PI;	// find angle
@@ -1116,7 +1120,7 @@ void shearRateToColor(Mat& current, Mat& outImg) {
 
 			// store the previous max to maxmin next frame
 			if ( sqrt(ptr->x * ptr->x + ptr->y * ptr->y) > max_displacement ) max_displacement = sqrt(ptr->x * ptr->x + ptr->y * ptr->y);
-			if (frobeniusNorm > max_frobeniusNorm_new) max_frobeniusNorm_new = frobeniusNorm;
+			max_frobeniusNorm_new = max(frobeniusNorm, max_frobeniusNorm_new);
 	
 			global_theta += ptr2->x * ptr2->z;
 			global_magnitude += ptr2->z;

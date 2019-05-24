@@ -53,7 +53,7 @@ int main(int argc, char** argv) {
 	// compute_populationMap(video);
 	// compute_timelinesFarne(video);
 	// compute_subtructAverageVectorWithWindow(video);
-	 compute_shearRate(video);
+	compute_shearRate(video);
 
 	return 0;
 }
@@ -1050,7 +1050,7 @@ int compute_subtructAverageVectorWithWindow(VideoCapture video) {
 	// streamlines = 1;
 	// streampt[0] = Pixel2(300,300);
 
-	int windowSize = 400;
+	int windowSize = 50;
 	int currentBuffer = 0;
 	vector<Mat> buffer;
 	Mat averageCurrent = Mat::zeros(YDIM,XDIM,CV_32FC2);
@@ -1222,7 +1222,7 @@ int compute_shearRate(VideoCapture video) {
 	// streamlines = 1;
 	// streampt[0] = Pixel2(300,300);
 
-	int windowSize = 1;
+	int windowSize = 100;
 	int currentBuffer = 0;
 	vector<Mat> buffer;
 	Mat averageCurrent = Mat::zeros(YDIM,XDIM,CV_32FC2);
