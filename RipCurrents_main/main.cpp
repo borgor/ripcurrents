@@ -22,7 +22,9 @@ int timelinesOnSubtractAverageVector(VideoCapture video);
 int compute_populationMap(VideoCapture video);
 int compute_timelinesFarne(VideoCapture video);
 int compute_subtructAverageVectorWithWindow(VideoCapture video);
+int compute_timex(VideoCapture video);
 int compute_shearRate(VideoCapture video);
+int stabilize(VideoCapture video);
 
 String outputFileName = "default";
 
@@ -46,14 +48,17 @@ int main(int argc, char** argv) {
 		outputFileName = argv[2];
 	}
 
+
 	// compute_streaklines(video);
 	// compute_streamlines(video);
-	// compute_timelines(video);
+	 compute_timelines(video);
 	// compute_subtructAverageVector(video);
 	// compute_populationMap(video);
 	// compute_timelinesFarne(video);
 	// compute_subtructAverageVectorWithWindow(video);
-	compute_shearRate(video);
+	// compute_timex(video);
+	// compute_shearRate(video);
+	// stabilize(video);
 
 	return 0;
 }
@@ -415,8 +420,8 @@ int validate_streamlines(VideoCapture video) {
 int compute_timelines(VideoCapture video) {
 
 	// @ params
-	Pixel2 lineStart = Pixel2(250,100);
-	Pixel2 lineEnd = Pixel2(300,300);
+	Pixel2 lineStart = Pixel2(10,250);
+	Pixel2 lineEnd = Pixel2(XDIM - 10,300);
 	int numberOfVertices = 20;
 
 	// set up output videos
@@ -840,8 +845,8 @@ int compute_timelinesFarne(VideoCapture video) {
 	
 
 	// @ params
-	Pixel2 lineStart = Pixel2(100,180);
-	Pixel2 lineEnd = Pixel2(500,250);
+	Pixel2 lineStart = Pixel2(100,100);
+	Pixel2 lineEnd = Pixel2(500,100);
 	int numberOfVertices = 20;
 
 	// discrete streamline seed points
@@ -1050,7 +1055,7 @@ int compute_subtructAverageVectorWithWindow(VideoCapture video) {
 	// streamlines = 1;
 	// streampt[0] = Pixel2(300,300);
 
-	int windowSize = 50;
+	int windowSize = 80;
 	int currentBuffer = 0;
 	vector<Mat> buffer;
 	Mat averageCurrent = Mat::zeros(YDIM,XDIM,CV_32FC2);
@@ -1130,7 +1135,7 @@ int compute_subtructAverageVectorWithWindow(VideoCapture video) {
         Mat mat = (Mat_<double>(2,3)<<1.0, 0.0, XDIM - YDIM/8, 0.0, 1.0, 0);
         warpAffine(color_wheel, outImg_overlay, mat, outImg_overlay.size(), CV_INTER_LINEAR, cv::BORDER_TRANSPARENT);
 		
-   		addWeighted( outImg, 0.5, outImg_overlay, 0.5, 0.0, outImg);
+   		addWeighted( outImg, 0.4, outImg_overlay, 0.6, 0.0, outImg);
 
 		imshow("subtruct average vector",outImg);
 		imshow("subtruct average vector color",outImg_overlay);
@@ -1156,6 +1161,113 @@ int compute_subtructAverageVectorWithWindow(VideoCapture video) {
 	video_output.release();
 	destroyAllWindows();
 	current.release();
+
+	return 0;
+}
+
+
+int compute_timex(VideoCapture video) {
+
+	// set up output videos
+	String video_name = "time-exposure";
+	VideoWriter video_output( outputFileName + ".mp4",CV_FOURCC('X','2','6','4'), 30, cv::Size(XDIM,YDIM),true);
+
+	if (!video_output.isOpened())
+	{
+		std::cout << "!!! Output video could not be opened" << std::endl;
+		return -1;
+	}
+
+	// OpenCV matrices to load images
+	Mat frame;			// raw current frame image
+	Mat resized_frame;	// resized current frame image
+	Mat grayscaled_frame;			// gray scaled current frame image
+
+	int windowSize = 50;
+	int currentBuffer = 0;
+
+	vector<Mat> buffer_hsv;
+	for ( int i = 0; i < windowSize; i++ ) {
+		buffer_hsv.push_back(Mat::zeros(YDIM,XDIM,CV_8UC3));
+	}
+
+	int framecount = 0;
+	// read and process every frame
+	for( framecount = 1; true; framecount++){
+
+		// read current frame
+		video.read(frame);
+		printf("Frames read : %d\n",framecount);
+		if(frame.empty()) break;
+		
+		// prepare input image
+		resize(frame,resized_frame,Size(XDIM,YDIM),0,0,INTER_LINEAR);
+
+		Mat outImg;
+		resized_frame.copyTo(outImg);
+
+		Mat hsv;
+		cvtColor(resized_frame, hsv, COLOR_RGB2HSV);
+
+		// get new buffer
+		buffer_hsv[currentBuffer] = hsv;
+		
+		
+		Mat average_hsv = buffer_hsv[0];
+
+		for (int i = 0; i < windowSize; i++)
+		{
+			//average_hsv += buffer_hsv[i] / windowSize;
+
+			
+			for ( int row = 0; row < buffer_hsv[i].rows; row++ ){
+				Pixelc* ptr = buffer_hsv[i].ptr<Pixelc>(row, 0);
+				Pixelc* ptr2 = average_hsv.ptr<Pixelc>(row,0);
+				for ( int col = 0; col < buffer_hsv[i].cols; col++){
+					float hue = ptr->x;
+					float sat = ptr->y;
+					float val = ptr->z;
+
+					float val_o = ptr2->z;
+
+					if (val_o < val)
+					{
+						ptr2->x = hue;
+						ptr2->y = sat;
+						ptr2->z = val;
+					}
+					ptr++;
+					ptr2++;
+				}
+			}
+
+		}
+		
+
+		// increment current buffer number
+		currentBuffer++;
+		if ( currentBuffer >= windowSize ) currentBuffer = 0;
+
+		cvtColor(average_hsv, outImg, COLOR_HSV2RGB);
+
+		imshow("subtruct average vector",outImg);
+		video_output.write(outImg);
+
+
+		// end with Esc key on any window
+		int c = waitKey(1);
+		if ( c == 27) break;
+
+		// stop and restart with any key
+		if ( c != -1 && c != 27 ) {
+			waitKey(0);
+		}
+
+	}
+
+	// clean up
+	video_output.release();
+	destroyAllWindows();
 
 	return 0;
 }
@@ -1328,6 +1440,134 @@ int compute_shearRate(VideoCapture video) {
 	video_output.release();
 	destroyAllWindows();
 	current.release();
+
+	return 0;
+}
+
+int stabilize(VideoCapture video) {
+
+
+	// Get frame count
+	int n_frames = int(video.get(CAP_PROP_FRAME_COUNT)); 
+	
+	// Get width and height of video stream
+	int w = int(video.get(CAP_PROP_FRAME_WIDTH)); 
+	int h = int(video.get(CAP_PROP_FRAME_HEIGHT));
+
+	// Get frames per second (fps)
+	double fps = video.get(CV_CAP_PROP_FPS);
+	
+	// Set up output video
+	VideoWriter video_output("stablization.mp4", CV_FOURCC('X','2','6','4'), fps, Size(XDIM, YDIM));
+
+	// Define variable for storing frames
+	Mat curr, curr_gray;
+	Mat prev, prev_gray;
+
+	// Read the first frame
+	video >> prev;
+
+	// Convert frame to grayscale
+	resize(prev, prev, Size(XDIM,YDIM), 0, 0, INTER_AREA);
+	cvtColor(prev, prev_gray, COLOR_BGR2GRAY);
+
+	for (int frame_count = 1; true; frame_count++)
+	{
+		printf("%d\n", frame_count);
+	
+		// Read new frame
+		video >> curr;
+
+		if (curr.empty()) break;
+		
+		
+		// Convert frame to grayscale
+		resize(curr, curr, Size(XDIM,YDIM), 0, 0, INTER_AREA);
+		cvtColor(curr, curr_gray, COLOR_BGR2GRAY);
+
+		// Use AKAZE algorithm
+		auto algorithm = AKAZE::create();
+
+		// Detect keypoints
+		vector<KeyPoint> keypoint1, keypoint2;
+		algorithm->detect(prev,keypoint1);
+		algorithm->detect(curr, keypoint2);
+
+		// Write out keypoints
+		Mat descriptor1, descriptor2;
+		algorithm->compute(prev, keypoint1, descriptor1);
+		algorithm->compute(curr, keypoint2, descriptor2);
+
+		// Find matching 1->2 and 2->1
+		Ptr<DescriptorMatcher> matcher = DescriptorMatcher::create("BruteForce");
+		vector<DMatch> match, match12, match21;
+		matcher->match(descriptor1, descriptor2, match12);
+		matcher->match(descriptor2, descriptor1, match21);
+
+		// Cross-match 1->2 and 2->1 to improve accuracy
+		for (size_t i = 0; i < match12.size(); i++)
+		{
+			DMatch forward = match12[i];
+			DMatch backward = match21[forward.trainIdx];
+			if (backward.trainIdx == forward.trainIdx)
+			{
+				float diff_x = abs(keypoint1[forward.trainIdx].pt.x - keypoint2[forward.trainIdx].pt.x);
+				float diff_y = abs(keypoint1[forward.trainIdx].pt.y - keypoint2[forward.trainIdx].pt.y);
+				if (diff_x < 1.0 && diff_y < 1.0)
+				{
+					match.push_back(forward);
+				}
+			}
+		}
+
+		
+		Mat dest;
+		drawMatches(prev, keypoint1, curr, keypoint2, match, dest);
+		String filename = "match/" + to_string(frame_count) + ".jpg";
+		imwrite(filename, dest);
+
+		vector<Point2f> prev_match, curr_match;
+		
+		for (size_t i = 0; i < match.size(); i++)
+		{
+			prev_match.push_back(keypoint1[match[i].trainIdx].pt);
+			curr_match.push_back(keypoint2[match[i].trainIdx].pt);
+		}
+		
+		Mat correction;
+		printf("%d \n", prev_match.size());
+		printf("%d \n", curr_match.size());
+		if (prev_match.size() != 0)
+		{
+			Mat M = findHomography(prev_match, curr_match, CV_RANSAC);
+			
+			warpPerspective(curr, correction, M.inv(), Size(XDIM,YDIM));
+		}
+		else
+		{
+			curr.copyTo(correction);
+		}
+
+		video_output.write(correction);
+		imshow("correction",correction);
+
+		correction.copyTo(prev);
+
+
+
+		// end with Esc key on any window
+		int c = waitKey(1);
+		if ( c == 27) break;
+
+		// stop and restart with any key
+		if ( c != -1 && c != 27 ) {
+			waitKey(0);
+		}
+		
+	}
+
+	video_output.release();
+	destroyAllWindows();
 
 	return 0;
 }
