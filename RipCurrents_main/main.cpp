@@ -51,12 +51,12 @@ int main(int argc, char** argv) {
 
 	// compute_streaklines(video);
 	// compute_streamlines(video);
-	 compute_timelines(video);
+	// compute_timelines(video);
 	// compute_subtructAverageVector(video);
 	// compute_populationMap(video);
 	// compute_timelinesFarne(video);
 	// compute_subtructAverageVectorWithWindow(video);
-	// compute_timex(video);
+	 compute_timex(video);
 	// compute_shearRate(video);
 	// stabilize(video);
 
@@ -1213,42 +1213,55 @@ int compute_timex(VideoCapture video) {
 		buffer_hsv[currentBuffer] = hsv;
 		
 		
-		Mat average_hsv = buffer_hsv[0];
+		Mat average_hsv = buffer_hsv[0] / windowSize;
 
-		for (int i = 0; i < windowSize; i++)
+		/*
+		option
+		0 - average color
+		1 - bright color
+		2 - dark color
+		*/
+		int option = 0;
+
+		for (int i = 1; i < windowSize; i++)
 		{
-			//average_hsv += buffer_hsv[i] / windowSize;
+			if(option==0)
+			{
+				average_hsv += buffer_hsv[i] / windowSize;
+			}
+			else
+			{
+				for ( int row = 0; row < buffer_hsv[i].rows; row++ ){
+					Pixelc* ptr = buffer_hsv[i].ptr<Pixelc>(row, 0);
+					Pixelc* ptr2 = average_hsv.ptr<Pixelc>(row,0);
+					for ( int col = 0; col < buffer_hsv[i].cols; col++){
+						float hue = ptr->x;
+						float sat = ptr->y;
+						float val = ptr->z;
 
-			
-			for ( int row = 0; row < buffer_hsv[i].rows; row++ ){
-				Pixelc* ptr = buffer_hsv[i].ptr<Pixelc>(row, 0);
-				Pixelc* ptr2 = average_hsv.ptr<Pixelc>(row,0);
-				for ( int col = 0; col < buffer_hsv[i].cols; col++){
-					float hue = ptr->x;
-					float sat = ptr->y;
-					float val = ptr->z;
+						float val_o = ptr2->z;
 
-					float val_o = ptr2->z;
-
-					if (val_o < val)
-					{
-						ptr2->x = hue;
-						ptr2->y = sat;
-						ptr2->z = val;
+						if (option==1 && val_o < val || option==2 && val_o > val)
+						{
+							ptr2->x = hue;
+							ptr2->y = sat;
+							ptr2->z = val;
+						}
+						ptr++;
+						ptr2++;
 					}
-					ptr++;
-					ptr2++;
 				}
 			}
 
 		}
-		
 
 		// increment current buffer number
 		currentBuffer++;
 		if ( currentBuffer >= windowSize ) currentBuffer = 0;
 
 		cvtColor(average_hsv, outImg, COLOR_HSV2RGB);
+
+		drawFrameCount(outImg, framecount);
 
 		imshow("subtruct average vector",outImg);
 		video_output.write(outImg);
