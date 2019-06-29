@@ -23,10 +23,35 @@ int compute_populationMap(VideoCapture video);
 int compute_timelinesFarne(VideoCapture video);
 int compute_subtructAverageVectorWithWindow(VideoCapture video);
 int compute_timex(VideoCapture video);
+int compute_brightColor(VideoCapture video);
 int compute_shearRate(VideoCapture video);
 int stabilize(VideoCapture video);
+int compute_phaseCorrelate(VideoCapture video);
 
 String outputFileName = "default";
+
+string type2str(int type) {
+  string r;
+
+  uchar depth = type & CV_MAT_DEPTH_MASK;
+  uchar chans = 1 + (type >> CV_CN_SHIFT);
+
+  switch ( depth ) {
+    case CV_8U:  r = "8U"; break;
+    case CV_8S:  r = "8S"; break;
+    case CV_16U: r = "16U"; break;
+    case CV_16S: r = "16S"; break;
+    case CV_32S: r = "32S"; break;
+    case CV_32F: r = "32F"; break;
+    case CV_64F: r = "64F"; break;
+    default:     r = "User"; break;
+  }
+
+  r += "C";
+  r += (chans+'0');
+
+  return r;
+}
 
 int main(int argc, char** argv) {
 
@@ -56,9 +81,11 @@ int main(int argc, char** argv) {
 	// compute_populationMap(video);
 	// compute_timelinesFarne(video);
 	// compute_subtructAverageVectorWithWindow(video);
-	 compute_timex(video);
+	// compute_timex(video);
+	// compute_brightColor(video);
 	// compute_shearRate(video);
 	// stabilize(video);
+	compute_phaseCorrelate(video);
 
 	return 0;
 }
@@ -1055,7 +1082,7 @@ int compute_subtructAverageVectorWithWindow(VideoCapture video) {
 	// streamlines = 1;
 	// streampt[0] = Pixel2(300,300);
 
-	int windowSize = 80;
+	int windowSize = 10;
 	int currentBuffer = 0;
 	vector<Mat> buffer;
 	Mat averageCurrent = Mat::zeros(YDIM,XDIM,CV_32FC2);
@@ -1167,6 +1194,76 @@ int compute_subtructAverageVectorWithWindow(VideoCapture video) {
 
 
 int compute_timex(VideoCapture video) {
+
+	// set up output videos
+	String video_name = "time-exposure";
+	VideoWriter video_output( outputFileName + ".mp4",CV_FOURCC('X','2','6','4'), 30, cv::Size(XDIM,YDIM),true);
+
+	if (!video_output.isOpened())
+	{
+		std::cout << "!!! Output video could not be opened" << std::endl;
+		return -1;
+	}
+
+	// OpenCV matrices to load images
+	Mat frame;			// raw current frame image
+	Mat resized_frame;	// resized current frame image
+	Mat grayscaled_frame;			// gray scaled current frame image
+
+	int windowSize = 500;
+
+	Mat sum_rgb = Mat::zeros(YDIM,XDIM,CV_32FC3);
+
+	// read and process every frame
+	for( int framecount = 1; framecount <= windowSize; framecount++){
+
+		// read current frame
+		video.read(frame);
+		printf("Frames read : %d\n",framecount);
+		if(frame.empty()) break;
+		
+		// prepare input image
+		resize(frame,resized_frame,Size(XDIM,YDIM),0,0,INTER_LINEAR);
+
+		Mat rgb = Mat::zeros(YDIM,XDIM,CV_32FC3);
+		resized_frame.convertTo(rgb, CV_32FC3);
+
+		// get new buffer
+		sum_rgb += rgb;
+
+		Mat average_rgb = Mat::zeros(YDIM,XDIM,CV_32FC3);
+
+		average_rgb = sum_rgb / framecount;
+
+		Mat outImg;
+
+		average_rgb.convertTo(outImg, CV_8UC3);
+
+		drawFrameCount(outImg, framecount);
+
+		imshow("subtruct average vector",outImg);
+		video_output.write(outImg);
+
+
+		// end with Esc key on any window
+		int c = waitKey(1);
+		if ( c == 27) break;
+
+		// stop and restart with any key
+		if ( c != -1 && c != 27 ) {
+			waitKey(0);
+		}
+
+	}
+
+	// clean up
+	video_output.release();
+	destroyAllWindows();
+
+	return 0;
+}
+
+int compute_brightColor(VideoCapture video) {
 
 	// set up output videos
 	String video_name = "time-exposure";
@@ -1577,6 +1674,99 @@ int stabilize(VideoCapture video) {
 			waitKey(0);
 		}
 		
+	}
+
+	video_output.release();
+	destroyAllWindows();
+
+	return 0;
+}
+
+int compute_phaseCorrelate(VideoCapture video) {
+
+
+	// Get frame count
+	int n_frames = int(video.get(CAP_PROP_FRAME_COUNT)); 
+	
+	// Get width and height of video stream
+	int w = int(video.get(CAP_PROP_FRAME_WIDTH)); 
+	int h = int(video.get(CAP_PROP_FRAME_HEIGHT));
+
+	// Get frames per second (fps)
+	double fps = video.get(CV_CAP_PROP_FPS);
+	
+	// Set up output video
+	VideoWriter video_output("phaseCorrelate.mp4", CV_FOURCC('X','2','6','4'), fps, Size(XDIM, YDIM));
+
+	// Define variable for storing frames
+	Mat curr, curr_gray, curr_f, curr_crop;
+	Mat prev, prev_gray, prev_f, prev_crop;
+
+	// Read the first frame
+	video >> prev;
+
+	// Convert frame to grayscale
+	resize(prev, prev, Size(XDIM,YDIM), 0, 0, INTER_AREA);
+
+	for (int frame_count = 1; true; frame_count++)
+	{
+		printf("frame : %d\n", frame_count);
+
+		// Convert the previous frame to graysacale
+		cvtColor(prev, prev_gray, COLOR_BGR2GRAY);
+		prev_gray.convertTo(prev_f, CV_32FC1);
+	
+		// Read new frame
+		video >> curr;
+		if (curr.empty()) break;
+		
+		// Convert the current frame to grayscale
+		resize(curr, curr, Size(XDIM,YDIM), 0, 0, INTER_AREA);
+		cvtColor(curr, curr_gray, COLOR_BGR2GRAY);
+		curr_gray.convertTo(curr_f, CV_32FC1);
+
+		// Define beach region to track
+		Rect roi;
+		roi.x = 0;
+		roi.y = YDIM - 50;
+		roi.width = XDIM;
+		roi.height = 50;
+
+		// Crop the regions
+		prev_crop = prev_f(roi);
+		curr_crop = curr_f(roi);
+
+		// Define Hann Window; I don't know what this is lol
+		Mat matHann;
+		createHanningWindow(matHann, curr_crop.size(), CV_32F);
+
+		// Run Phase Correlate
+		// Returns the shift and accuracy
+		double response;
+		Point2d shift = phaseCorrelate(prev_crop, curr_crop, matHann, &response);
+		cout << shift.x << " : " << shift.y << "response " << response << endl;
+
+		// Shift the image based on the result of phaseCorrelate
+		Mat correction;
+		Mat mat = (Mat_<double>(2,3) << 1,0,-shift.x, 0,1,-shift.y ); 
+		warpAffine(curr, correction, mat, curr.size());
+
+
+		Mat outImg;
+		correction.convertTo(outImg, CV_8UC1);
+		video_output.write(outImg);
+		imshow("correction", outImg);
+
+		correction.copyTo(prev);
+
+		// end with Esc key on any window
+		int c = waitKey(1);
+		if ( c == 27) break;
+
+		// stop and restart with any key
+		if ( c != -1 && c != 27 ) {
+			waitKey(0);
+		}
 	}
 
 	video_output.release();
