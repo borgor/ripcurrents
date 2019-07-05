@@ -269,7 +269,7 @@ void display_histogram(int hist2d[HIST_DIRECTIONS][HIST_BINS],int histsum2d[HIST
 	});
 	
 	
-	cvtColor(foo,foo,CV_HSV2BGR);
+	cvtColor(foo,foo,COLOR_HSV2BGR);
 	imshow("Color Histogram",foo);
 	
 	return;
@@ -337,7 +337,7 @@ void globalOrientation(UMat u_f1, UMat u_f2, Mat& hist_gray){
 	cvtColor(hist_color,hist_gray,COLOR_GRAY2BGR);
 
 	// draw center point
-	circle(hist_gray, Point((int)(XDIM / 2), (int)(YDIM / 2)), 3, Scalar(0, 215, 255), CV_FILLED, 16, 0);
+	circle(hist_gray, Point((int)(XDIM / 2), (int)(YDIM / 2)), 3, Scalar(0, 215, 255), FILLED, 16, 0);
 
 	// draw line
 	double angle_rad = angle_deg * M_PI / 180;
@@ -348,7 +348,7 @@ void globalOrientation(UMat u_f1, UMat u_f2, Mat& hist_gray){
 	// draw dots
 	for ( int row = 0; row < YDIM; row += 30 ){
 		for ( int col = 0; col < XDIM; col += 30 ){
-			circle(hist_gray, Point(col, row), 1, Scalar(0, 215, 0), CV_FILLED, 16, 0);
+			circle(hist_gray, Point(col, row), 1, Scalar(0, 215, 0), FILLED, 16, 0);
 			angle_deg = orientation.at<double>(row, col);
 			if ( angle_deg > 0 ) angle_rad = angle_deg * M_PI / 180;
 			arrowedLine(hist_gray, Point(col, row), 
@@ -452,14 +452,14 @@ void averageVector(std::vector<Mat> buffer, Mat& current, int update_ith_buffer,
 	}
 
 	// draw global orientation arrow
-	circle(average_color, Point((int)(XDIM/2), (int)(YDIM/2)), 3, Scalar(0, 215, 255), CV_FILLED, 16, 0);
+	circle(average_color, Point((int)(XDIM/2), (int)(YDIM/2)), 3, Scalar(0, 215, 255), FILLED, 16, 0);
 	double global_angle_rad = global_theta * 2 / global_magnitude * M_PI / 180;
 	arrowedLine(average_color, Point((int)(XDIM / 2), (int)(YDIM / 2)), 
 		Point((int)(XDIM / 2 + cos(global_angle_rad) * 10), (int)(YDIM / 2 + sin(global_angle_rad) * 50)),
 		Scalar(0, 215, 255), 2, 16, 0, 0.2);
 
 	// show as hsv format
-	cvtColor(average_color, average_color, CV_HSV2BGR);
+	cvtColor(average_color, average_color, COLOR_HSV2BGR);
 
 	// draw arrows for each grid
 	for ( int row = 1; row < GRID_COUNT; row++ ){
@@ -469,7 +469,7 @@ void averageVector(std::vector<Mat> buffer, Mat& current, int update_ith_buffer,
 			// find in-between angle
 			double angle_between = min(abs(angle_rad - global_angle_rad), 2*M_PI-abs(angle_rad - global_angle_rad));
 			if ( angle_between > M_PI * 0.7 ) {
-				circle(average_color, Point(col * grid_col_num, row * grid_row_num), 1, Scalar(0, 255, 0), CV_FILLED, 16, 0);
+				circle(average_color, Point(col * grid_col_num, row * grid_row_num), 1, Scalar(0, 255, 0), FILLED, 16, 0);
 				arrowedLine(average_color, Point(col * grid_col_num, row * grid_row_num), 
 					Point((int)(col * grid_col_num + cos(angle_rad) * 10), (int)(row * grid_row_num + sin(angle_rad) * 10)),
 					Scalar(0, 255, 0), 1, 16, 0, 0.4);
@@ -742,7 +742,7 @@ void flowRedPoints ( UMat u_f1, UMat u_f2, Mat subframe, std::vector<Point2f>& f
 	subframe.copyTo(features);
 
 	for ( int i = 0; i < (int)features_next.size(); i++ ) {
-		circle(features,cvPoint(features_next[i].x,features_next[i].y),2,CV_RGB(100,0,0),-1,8,0);
+		circle(features,Point(features_next[i].x,features_next[i].y),2,CV_RGB(100,0,0),-1,8,0);
 	}
 
 	imshow("features", features);
@@ -799,10 +799,10 @@ void Timeline::runLK(UMat u_prev, UMat u_current, Mat& outImg) {
 	*/
 
 	// draw edges
-	circle(outImg,cvPoint(vertices[0].x,vertices[0].y),4,CV_RGB(0,0,100),-1,8,0);
+	circle(outImg,Point(vertices[0].x,vertices[0].y),4,CV_RGB(0,0,100),-1,8,0);
 	for ( int i = 0; i < (int)vertices.size() - 1; i++ ) {
-		line(outImg,cvPoint(vertices[i].x,vertices[i].y),cvPoint(vertices[i+1].x,vertices[i+1].y),CV_RGB(100,0,0),2,8,0);
-		circle(outImg,cvPoint(vertices[i+1].x,vertices[i+1].y),4,CV_RGB(0,0,100),-1,8,0);
+		line(outImg,Point(vertices[i].x,vertices[i].y),Point(vertices[i+1].x,vertices[i+1].y),CV_RGB(100,0,0),2,8,0);
+		circle(outImg,Point(vertices[i+1].x,vertices[i+1].y),4,CV_RGB(0,0,100),-1,8,0);
 	}
 }
 
@@ -1053,7 +1053,7 @@ void vectorToColor(Mat& current, Mat& outImg) {
 	max_displacement = max_displacement_new;
 
 	// show as hsv format
-	cvtColor(outImg, outImg, CV_HSV2BGR);
+	cvtColor(outImg, outImg, COLOR_HSV2BGR);
 }
 
 void shearRateToColor(Mat& current, Mat& outImg) {
@@ -1134,7 +1134,7 @@ void shearRateToColor(Mat& current, Mat& outImg) {
 	max_frobeniusNorm = max_frobeniusNorm_new;
 
 	// show as hsv format
-	cvtColor(outImg, outImg, CV_HSV2BGR);
+	cvtColor(outImg, outImg, COLOR_HSV2BGR);
 }
 
 PopulationMap::PopulationMap(Pixel2 rectStart, Pixel2 rectEnd, int numberOfVertices) {
@@ -1190,12 +1190,12 @@ void PopulationMap::runLK(UMat u_prev, UMat u_current, Mat& outImg) {
 	double opacity = 0.5;
 	for ( int i = 0; i < (int)vertices.size(); i++ ) {
 		outImg.copyTo(overlay);
-		circle(overlay,cvPoint(vertices[i].x,vertices[i].y),10,CV_RGB(100,0,0),-1,8,0);
+		circle(overlay,Point(vertices[i].x,vertices[i].y),10,CV_RGB(100,0,0),-1,8,0);
 		addWeighted(overlay, opacity, outImg, 1 - opacity, 0, outImg, -1);
 	}
 }
 
 void drawFrameCount(Mat& outImg, int framecount) {
-	putText(outImg, to_string(framecount), cvPoint(30,30), 
-	FONT_HERSHEY_COMPLEX_SMALL, 0.8, cvScalar(250,250,250), 1, CV_AA);
+	putText(outImg, to_string(framecount), Point(30,30), 
+	FONT_HERSHEY_COMPLEX_SMALL, 0.8, Scalar(250,250,250), 1, false);
 }

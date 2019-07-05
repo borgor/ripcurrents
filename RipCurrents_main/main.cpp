@@ -1,4 +1,3 @@
-#include <math.h>
 #include <stdio.h>
 #include <sys/time.h>
 #include <string>
@@ -76,7 +75,7 @@ int main(int argc, char** argv) {
 
 	// compute_streaklines(video);
 	// compute_streamlines(video);
-	// compute_timelines(video);
+	 compute_timelines(video);
 	// compute_subtructAverageVector(video);
 	// compute_populationMap(video);
 	// compute_timelinesFarne(video);
@@ -85,7 +84,7 @@ int main(int argc, char** argv) {
 	// compute_brightColor(video);
 	// compute_shearRate(video);
 	// stabilize(video);
-	compute_phaseCorrelate(video);
+	// compute_phaseCorrelate(video);
 
 	return 0;
 }
@@ -94,7 +93,7 @@ int compute_streaklines(VideoCapture video) {
 
 	// set up output videos
 	String video_name = "streaklines";
-	VideoWriter video_output( video_name + ".mp4",CV_FOURCC('X','2','6','4'), 30, cv::Size(XDIM,YDIM),true);
+	VideoWriter video_output( video_name + ".mp4",VideoWriter::fourcc('X','2','6','4'), 30, cv::Size(XDIM,YDIM),true);
 
 	if (!video_output.isOpened())
 	{
@@ -179,7 +178,7 @@ int compute_streamlines(VideoCapture video) {
 
 	// set up output videos
 	String video_name = "streamlines";
-	VideoWriter video_output( video_name + ".mp4",CV_FOURCC('X','2','6','4'), 30, cv::Size(XDIM,YDIM),true);
+	VideoWriter video_output( video_name + ".mp4",VideoWriter::fourcc('X','2','6','4'), 30, cv::Size(XDIM,YDIM),true);
 
 	if (!video_output.isOpened())
 	{
@@ -305,7 +304,7 @@ int validate_streamlines(VideoCapture video) {
 
 	// set up output videos
 	String video_name = "streamlines_validate";
-	VideoWriter video_output( video_name + ".mp4",CV_FOURCC('X','2','6','4'), 30, cv::Size(XDIM,YDIM),true);
+	VideoWriter video_output( video_name + ".mp4",VideoWriter::fourcc('X','2','6','4'), 30, cv::Size(XDIM,YDIM),true);
 
 	if (!video_output.isOpened())
 	{
@@ -447,13 +446,13 @@ int validate_streamlines(VideoCapture video) {
 int compute_timelines(VideoCapture video) {
 
 	// @ params
-	Pixel2 lineStart = Pixel2(10,250);
-	Pixel2 lineEnd = Pixel2(XDIM - 10,300);
-	int numberOfVertices = 20;
+	Pixel2 lineStart = Pixel2(10,150);
+	Pixel2 lineEnd = Pixel2(XDIM - 10,400);
+	int numberOfVertices = 200;
 
 	// set up output videos
 	String video_name = "timelines";
-	VideoWriter video_output( video_name + ".mp4",CV_FOURCC('X','2','6','4'), 30, cv::Size(XDIM,YDIM),true);
+	VideoWriter video_output( video_name + ".mp4",VideoWriter::fourcc('X','2','6','4'), 30, cv::Size(XDIM,YDIM),true);
 
 	if (!video_output.isOpened())
 	{
@@ -528,7 +527,7 @@ int compute_subtructAverageVector(VideoCapture video) {
 
 	// set up output videos
 	String video_name = "subtructAverageVector";
-	VideoWriter video_output( outputFileName + ".mp4",CV_FOURCC('X','2','6','4'), 30, cv::Size(XDIM,YDIM),true);
+	VideoWriter video_output( outputFileName + ".mp4",VideoWriter::fourcc('X','2','6','4'), 30, cv::Size(XDIM,YDIM),true);
 
 	if (!video_output.isOpened())
 	{
@@ -662,7 +661,7 @@ int timelinesOnSubtractAverageVector(VideoCapture video) {
 
 	// set up output videos
 	String video_name = "subtructAverageVector";
-	VideoWriter video_output( video_name + ".mp4",CV_FOURCC('X','2','6','4'), 30, cv::Size(XDIM,YDIM),true);
+	VideoWriter video_output( video_name + ".mp4",VideoWriter::fourcc('X','2','6','4'), 30, cv::Size(XDIM,YDIM),true);
 
 	if (!video_output.isOpened())
 	{
@@ -797,7 +796,7 @@ int compute_populationMap(VideoCapture video) {
 
 	// set up output videos
 	String video_name = "populationMap";
-	VideoWriter video_output( video_name + ".mp4",CV_FOURCC('X','2','6','4'), 30, cv::Size(XDIM,YDIM),true);
+	VideoWriter video_output( video_name + ".mp4",VideoWriter::fourcc('X','2','6','4'), 30, cv::Size(XDIM,YDIM),true);
 
 	if (!video_output.isOpened())
 	{
@@ -892,7 +891,7 @@ int compute_timelinesFarne(VideoCapture video) {
 
 	// set up output videos
 	String video_name = "timelinesFarneSubtractAve";
-	VideoWriter video_output( outputFileName  + ".mp4",CV_FOURCC('X','2','6','4'), 30, cv::Size(XDIM,YDIM),true);
+	VideoWriter video_output( outputFileName  + ".mp4",VideoWriter::fourcc('X','2','6','4'), 30, cv::Size(XDIM,YDIM),true);
 
 	if (!video_output.isOpened())
 	{
@@ -982,10 +981,10 @@ int compute_timelinesFarne(VideoCapture video) {
 		resized_frame.copyTo(outImg);
 
 		// draw edges
-		circle(outImg,cvPoint(streampt[0].x,streampt[0].y),4,CV_RGB(0,0,100),-1,8,0);
+		circle(outImg,Point(streampt[0].x,streampt[0].y),4,CV_RGB(0,0,100),-1,8,0);
 		for ( int i = 0; i < (int)numberOfVertices - 1; i++ ) {
-			line(outImg,cvPoint(streampt[i].x,streampt[i].y),cvPoint(streampt[i+1].x,streampt[i+1].y),CV_RGB(100,0,0),2,8,0);
-			circle(outImg,cvPoint(streampt[i+1].x,streampt[i+1].y),4,CV_RGB(0,0,100),-1,8,0);
+			line(outImg,Point(streampt[i].x,streampt[i].y),Point(streampt[i+1].x,streampt[i+1].y),CV_RGB(100,0,0),2,8,0);
+			circle(outImg,Point(streampt[i+1].x,streampt[i+1].y),4,CV_RGB(0,0,100),-1,8,0);
 		}
 		
 		drawFrameCount(outImg, framecount);
@@ -1025,7 +1024,7 @@ int compute_subtructAverageVectorWithWindow(VideoCapture video) {
 
 	// set up output videos
 	String video_name = "subtructAverageVector";
-	VideoWriter video_output( outputFileName + ".mp4",CV_FOURCC('X','2','6','4'), 30, cv::Size(XDIM,YDIM),true);
+	VideoWriter video_output( outputFileName + ".mp4",VideoWriter::fourcc('X','2','6','4'), 30, cv::Size(XDIM,YDIM),true);
 
 	if (!video_output.isOpened())
 	{
@@ -1160,7 +1159,7 @@ int compute_subtructAverageVectorWithWindow(VideoCapture video) {
 
         // Draw color wheel
         Mat mat = (Mat_<double>(2,3)<<1.0, 0.0, XDIM - YDIM/8, 0.0, 1.0, 0);
-        warpAffine(color_wheel, outImg_overlay, mat, outImg_overlay.size(), CV_INTER_LINEAR, cv::BORDER_TRANSPARENT);
+        warpAffine(color_wheel, outImg_overlay, mat, outImg_overlay.size(), INTER_LINEAR, cv::BORDER_TRANSPARENT);
 		
    		addWeighted( outImg, 0.4, outImg_overlay, 0.6, 0.0, outImg);
 
@@ -1197,7 +1196,7 @@ int compute_timex(VideoCapture video) {
 
 	// set up output videos
 	String video_name = "time-exposure";
-	VideoWriter video_output( outputFileName + ".mp4",CV_FOURCC('X','2','6','4'), 30, cv::Size(XDIM,YDIM),true);
+	VideoWriter video_output( outputFileName + ".mp4",VideoWriter::fourcc('X','2','6','4'), 30, cv::Size(XDIM,YDIM),true);
 
 	if (!video_output.isOpened())
 	{
@@ -1267,7 +1266,7 @@ int compute_brightColor(VideoCapture video) {
 
 	// set up output videos
 	String video_name = "time-exposure";
-	VideoWriter video_output( outputFileName + ".mp4",CV_FOURCC('X','2','6','4'), 30, cv::Size(XDIM,YDIM),true);
+	VideoWriter video_output( outputFileName + ".mp4",VideoWriter::fourcc('X','2','6','4'), 30, cv::Size(XDIM,YDIM),true);
 
 	if (!video_output.isOpened())
 	{
@@ -1387,7 +1386,7 @@ int compute_shearRate(VideoCapture video) {
 
 	// set up output videos
 	String video_name = "subtructAverageVector";
-	VideoWriter video_output( outputFileName + ".mp4",CV_FOURCC('X','2','6','4'), 30, cv::Size(XDIM,YDIM),true);
+	VideoWriter video_output( outputFileName + ".mp4",VideoWriter::fourcc('X','2','6','4'), 30, cv::Size(XDIM,YDIM),true);
 
 	if (!video_output.isOpened())
 	{
@@ -1522,7 +1521,7 @@ int compute_shearRate(VideoCapture video) {
 
         // Draw color wheel
         Mat mat = (Mat_<double>(2,3)<<1.0, 0.0, XDIM - YDIM/8, 0.0, 1.0, 0);
-		warpAffine(color_chart, outImg_overlay, mat, outImg_overlay.size(), CV_INTER_LINEAR, cv::BORDER_TRANSPARENT);
+		warpAffine(color_chart, outImg_overlay, mat, outImg_overlay.size(), INTER_LINEAR, cv::BORDER_TRANSPARENT);
 		
    		addWeighted( outImg, 0.5, outImg_overlay, 0.5, 0.0, outImg);
 
@@ -1565,10 +1564,10 @@ int stabilize(VideoCapture video) {
 	int h = int(video.get(CAP_PROP_FRAME_HEIGHT));
 
 	// Get frames per second (fps)
-	double fps = video.get(CV_CAP_PROP_FPS);
+	double fps = video.get(CAP_PROP_FPS);
 	
 	// Set up output video
-	VideoWriter video_output("stablization.mp4", CV_FOURCC('X','2','6','4'), fps, Size(XDIM, YDIM));
+	VideoWriter video_output("stablization.mp4", VideoWriter::fourcc('X','2','6','4'), fps, Size(XDIM, YDIM));
 
 	// Define variable for storing frames
 	Mat curr, curr_gray;
@@ -1649,7 +1648,7 @@ int stabilize(VideoCapture video) {
 		printf("%d \n", curr_match.size());
 		if (prev_match.size() != 0)
 		{
-			Mat M = findHomography(prev_match, curr_match, CV_RANSAC);
+			Mat M = findHomography(prev_match, curr_match, RANSAC);
 			
 			warpPerspective(curr, correction, M.inv(), Size(XDIM,YDIM));
 		}
@@ -1693,10 +1692,10 @@ int compute_phaseCorrelate(VideoCapture video) {
 	int h = int(video.get(CAP_PROP_FRAME_HEIGHT));
 
 	// Get frames per second (fps)
-	double fps = video.get(CV_CAP_PROP_FPS);
+	double fps = video.get(CAP_PROP_FPS);
 	
 	// Set up output video
-	VideoWriter video_output("phaseCorrelate.mp4", CV_FOURCC('X','2','6','4'), fps, Size(XDIM, YDIM));
+	VideoWriter video_output("phaseCorrelate.mp4", VideoWriter::fourcc('X','2','6','4'), fps, Size(XDIM, YDIM));
 
 	// Define variable for storing frames
 	Mat curr, curr_gray, curr_f, curr_crop;
@@ -1727,9 +1726,9 @@ int compute_phaseCorrelate(VideoCapture video) {
 
 		// Define beach region to track
 		Rect roi;
-		roi.x = 0;
-		roi.y = YDIM - 50;
-		roi.width = XDIM;
+		roi.x = XDIM-50;
+		roi.y = 50;
+		roi.width = 50;
 		roi.height = 50;
 
 		// Crop the regions

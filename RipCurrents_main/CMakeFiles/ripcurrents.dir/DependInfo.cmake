@@ -8,12 +8,11 @@ set(CMAKE_DEPENDS_CHECK_CXX
   "/Users/moriissei/Desktop/UCSC/Research/RipCurrent/ripcurrents/RipCurrents_main/main.cpp" "/Users/moriissei/Desktop/UCSC/Research/RipCurrent/ripcurrents/RipCurrents_main/CMakeFiles/ripcurrents.dir/main.cpp.o"
   "/Users/moriissei/Desktop/UCSC/Research/RipCurrent/ripcurrents/RipCurrents_main/ripcurrents_module.cpp" "/Users/moriissei/Desktop/UCSC/Research/RipCurrent/ripcurrents/RipCurrents_main/CMakeFiles/ripcurrents.dir/ripcurrents_module.cpp.o"
   )
-set(CMAKE_CXX_COMPILER_ID "Clang")
+set(CMAKE_CXX_COMPILER_ID "AppleClang")
 
 # The include file search paths:
 set(CMAKE_CXX_TARGET_INCLUDE_PATH
-  "/usr/local/include"
-  "/usr/local/include/opencv"
+  "/usr/local/include/opencv4"
   )
 
 # Targets to which this target links.
